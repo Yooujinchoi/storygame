@@ -1,0 +1,2054 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>잿빛 숲의 기사</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; background: #07060c; color: #eee;
+  font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none;
+}
+body { display: flex; align-items: center; justify-content: center; height: 100vh; height: 100dvh; }
+
+#game {
+  position: relative;
+  width: min(100vw, calc(100vh * 16 / 9));
+  width: min(100vw, calc(100dvh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+  font-size: clamp(12px, 2.2vw, 18px);
+}
+#screen { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+.hidden { display: none !important; }
+
+/* 오버레이 공통 */
+.overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 4, 14, .55);
+}
+.panel { text-align: center; padding: 1.2em 2em; max-width: 90%; max-height: 92%; overflow-y: auto; }
+#title { background: transparent; }
+#title h1 {
+  font-size: 2.8em; margin: .1em 0 .8em; letter-spacing: .08em; color: #efe6ff;
+  text-shadow: 0 0 18px #8a5cff, 0 3px 0 #2a1a4a;
+}
+.subtitle { color: #b9a7ff; letter-spacing: .3em; font-size: .85em; }
+.menu { display: flex; flex-direction: column; gap: .5em; align-items: center; margin-top: 1em; }
+.menu button, #dialogue .choices button {
+  font: inherit; color: #f2ecff; background: rgba(40, 28, 70, .85);
+  border: 2px solid #6d55b8; border-radius: 8px; padding: .45em 1.6em; min-width: 12em; cursor: pointer;
+}
+.menu button:hover, .menu button:focus-visible { background: #5a3fa8; outline: none; border-color: #c8b6ff; }
+.menu button:disabled { opacity: .35; cursor: default; }
+#ending-list { margin-top: 1.2em; font-size: .8em; color: #a99cc8; line-height: 1.7; }
+
+#pause h2, #gameover h2 { margin: 0 0 .6em; color: #e9dcff; }
+.keys { margin: 0 auto; border-collapse: collapse; font-size: .9em; }
+.keys td { padding: .2em .9em; border-bottom: 1px solid #ffffff1a; text-align: left; }
+.keys td:first-child { color: #b9a7ff; }
+.tip { font-size: .8em; color: #c9c0e0; }
+
+/* 엔딩 */
+#ending { background: rgba(4, 3, 10, .92); }
+.ending-panel { max-width: 34em; }
+#end-type { letter-spacing: .4em; font-size: .8em; color: #ffd27a; }
+#end-title { font-size: 1.8em; margin: .2em 0 .8em; color: #fff; }
+#end-text p { line-height: 1.8; margin: .5em 0; color: #ddd6ee; opacity: 0; animation: fadein 1.2s forwards; }
+#end-count { margin-top: 1em; font-size: .85em; color: #a99cc8; }
+@keyframes fadein { to { opacity: 1; } }
+
+/* 대화창 */
+#dialogue {
+  position: absolute; left: 3%; right: 3%; bottom: 4%;
+  min-height: 26%; padding: .9em 1.2em 1em;
+  background: rgba(12, 9, 24, .9); border: 2px solid #6d55b8; border-radius: 10px;
+  box-shadow: 0 4px 0 #00000088;
+  cursor: pointer;
+}
+#dialogue .name {
+  position: absolute; top: -1em; left: 1em; padding: .1em .8em; border-radius: 6px;
+  background: #241a40; border: 2px solid currentColor; font-weight: 700; font-size: .9em;
+}
+#dialogue .name:empty { display: none; }
+#dialogue .text { line-height: 1.65; white-space: pre-wrap; min-height: 3.3em; }
+#dialogue.narr .text { color: #cfc6e6; font-style: italic; }
+#dialogue .choices { display: flex; flex-direction: column; gap: .35em; margin-top: .5em; }
+#dialogue .choices button { text-align: left; min-width: 0; padding: .3em .9em; }
+#dialogue .choices button.sel { background: #5a3fa8; border-color: #e3d8ff; }
+#dialogue .choices button.sel::before { content: "▶ "; }
+#dialogue .next { position: absolute; right: .9em; bottom: .4em; font-size: .8em; color: #b9a7ff; animation: blink 1s infinite; }
+#dialogue.choosing .next, #dialogue.typing .next { display: none; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* 터치 조작 */
+#touch { display: none; }
+body.touch #touch { display: block; }
+#stick-zone { position: absolute; left: 0; bottom: 0; width: 40%; height: 70%; }
+#stick-base {
+  position: absolute; left: 12%; bottom: 14%; width: 6.5em; height: 6.5em; border-radius: 50%;
+  background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2);
+}
+#stick-knob {
+  position: absolute; left: 50%; top: 50%; width: 2.8em; height: 2.8em; margin: -1.4em 0 0 -1.4em;
+  border-radius: 50%; background: rgba(200,180,255,.35); border: 2px solid rgba(255,255,255,.4);
+}
+#btns { position: absolute; right: 3%; bottom: 8%; display: grid; grid-template-columns: auto auto; gap: .6em; align-items: end; }
+.tb {
+  font: inherit; font-size: .8em; color: #fff; width: 4.2em; height: 4.2em; border-radius: 50%;
+  background: rgba(90, 63, 168, .45); border: 2px solid rgba(255,255,255,.35); touch-action: none;
+}
+.tb.big { width: 5.4em; height: 5.4em; background: rgba(168, 63, 90, .5); }
+.tb.small { width: 3.4em; height: 3.4em; }
+.tb.on { background: rgba(255,255,255,.4); }
+.pausebtn { position: absolute; right: 2%; top: 14%; width: 2.6em; height: 2.6em; }
+body.touch #dialogue { bottom: 4%; }
+body.touch.talking #touch { display: none; }
+
+</style>
+</head>
+<body>
+  <div id="game">
+    <canvas id="screen" width="640" height="360"></canvas>
+
+    <!-- 타이틀 -->
+    <div id="title" class="overlay">
+      <div class="panel">
+        <div class="subtitle">판타지 액션 스토리 RPG</div>
+        <h1>잿빛 숲의 기사</h1>
+        <div class="menu">
+          <button id="btn-new">새로운 모험</button>
+          <button id="btn-continue">이어하기</button>
+          <button id="btn-help">조작법</button>
+        </div>
+        <div id="ending-list"></div>
+      </div>
+    </div>
+
+    <!-- 조작법 / 일시정지 -->
+    <div id="pause" class="overlay hidden">
+      <div class="panel">
+        <h2 id="pause-title">일시정지</h2>
+        <table class="keys">
+          <tr><td>이동</td><td>WASD / 방향키</td></tr>
+          <tr><td>공격</td><td>J / 스페이스 / Z</td></tr>
+          <tr><td>대시 (회피)</td><td>K / Shift / X</td></tr>
+          <tr><td>대화 · 조사</td><td>E / Enter / F</td></tr>
+          <tr><td>회복 물약</td><td>Q</td></tr>
+          <tr><td>일시정지</td><td>Esc / P</td></tr>
+        </table>
+        <p class="tip">검으로 마법 구슬을 베면 없앨 수 있어요. 대시 중엔 잠깐 무적!</p>
+        <div class="menu">
+          <button id="btn-resume">계속하기</button>
+          <button id="btn-totitle">타이틀로</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 게임 오버 -->
+    <div id="gameover" class="overlay hidden">
+      <div class="panel">
+        <h2>쓰러졌다...</h2>
+        <p>마지막으로 저장된 곳에서 다시 시작합니다.</p>
+        <div class="menu"><button id="btn-retry">다시 도전 (E)</button></div>
+      </div>
+    </div>
+
+    <!-- 엔딩 -->
+    <div id="ending" class="overlay hidden">
+      <div class="panel ending-panel">
+        <div id="end-type"></div>
+        <h2 id="end-title"></h2>
+        <div id="end-text"></div>
+        <div id="end-count"></div>
+        <div class="menu"><button id="btn-end">타이틀로</button></div>
+      </div>
+    </div>
+
+    <!-- 대화창 -->
+    <div id="dialogue" class="hidden">
+      <div class="name"></div>
+      <div class="text"></div>
+      <div class="choices"></div>
+      <div class="next">▼</div>
+    </div>
+
+    <!-- 모바일 터치 조작 -->
+    <div id="touch">
+      <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
+      <div id="btns">
+        <button data-btn="potion" class="tb small">물약</button>
+        <button data-btn="act" class="tb small">대화</button>
+        <button data-btn="dash" class="tb">대시</button>
+        <button data-btn="attack" class="tb big">공격</button>
+      </div>
+      <button data-btn="pause" class="tb pausebtn">II</button>
+    </div>
+  </div>
+
+  <!-- 엔진 -->
+  <script>
+// 키보드 + 터치 입력을 하나의 "행동(action)" 단위로 묶어 관리합니다.
+const Input = (() => {
+  const KEYMAP = {
+    ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
+    ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
+    KeyJ: 'attack', Space: 'attack', KeyZ: 'attack',
+    KeyK: 'dash', ShiftLeft: 'dash', ShiftRight: 'dash', KeyX: 'dash',
+    KeyE: 'act', Enter: 'act', KeyF: 'act',
+    KeyQ: 'potion', Escape: 'pause', KeyP: 'pause',
+  };
+  const held = {}, pressed = {};
+  const touchAxis = { x: 0, y: 0 };
+
+  function press(a) { if (!held[a]) pressed[a] = true; held[a] = true; }
+  function release(a) { held[a] = false; }
+
+  addEventListener('keydown', e => {
+    // 메뉴 버튼에 포커스가 있을 때는 Enter/Space를 브라우저 기본 동작에 맡김
+    if (e.target && e.target.tagName === 'BUTTON' && (e.code === 'Enter' || e.code === 'Space')) return;
+    const a = KEYMAP[e.code];
+    if (!a) return;
+    e.preventDefault();
+    if (typeof Sfx !== 'undefined') Sfx.unlock();
+    if (e.repeat) return;
+    press(a);
+  });
+  addEventListener('keyup', e => { const a = KEYMAP[e.code]; if (a) release(a); });
+  addEventListener('blur', () => { for (const k in held) held[k] = false; });
+
+  return {
+    held, touchAxis, press, release,
+    down: a => !!held[a],
+    hit: a => !!pressed[a],
+    consume: a => { pressed[a] = false; },
+    endFrame() { for (const k in pressed) pressed[k] = false; },
+    axis() {
+      let x = (held.right ? 1 : 0) - (held.left ? 1 : 0);
+      let y = (held.down ? 1 : 0) - (held.up ? 1 : 0);
+      if (touchAxis.x || touchAxis.y) { x = touchAxis.x; y = touchAxis.y; }
+      const l = Math.hypot(x, y);
+      if (l > 1) { x /= l; y /= l; }
+      return { x, y };
+    },
+  };
+})();
+
+// 모바일 가상 조이스틱 + 버튼
+const Touch = {
+  init() {
+    const enable = () => document.body.classList.add('touch');
+    if (matchMedia('(pointer: coarse)').matches) enable();
+    addEventListener('touchstart', enable, { once: true, passive: true });
+
+    const zone = document.getElementById('stick-zone');
+    const base = document.getElementById('stick-base');
+    const knob = document.getElementById('stick-knob');
+    let id = null, cx = 0, cy = 0, lastDir = null;
+
+    const move = e => {
+      let dx = e.clientX - cx, dy = e.clientY - cy;
+      const R = base.offsetWidth / 2, l = Math.hypot(dx, dy);
+      if (l > R) { dx = dx / l * R; dy = dy / l * R; }
+      knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      let ax = dx / R, ay = dy / R;
+      if (Math.hypot(ax, ay) < 0.2) { ax = 0; ay = 0; }
+      Input.touchAxis.x = ax; Input.touchAxis.y = ay;
+      // 대화 선택지용 위/아래 입력
+      const dir = ay < -0.6 ? 'up' : ay > 0.6 ? 'down' : null;
+      if (dir !== lastDir) { if (dir) { Input.press(dir); Input.release(dir); } lastDir = dir; }
+    };
+    zone.addEventListener('pointerdown', e => {
+      id = e.pointerId; zone.setPointerCapture(id);
+      const r = base.getBoundingClientRect();
+      cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+      Sfx.unlock(); move(e); e.preventDefault();
+    });
+    zone.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
+    const end = e => {
+      if (e.pointerId !== id) return;
+      id = null; lastDir = null;
+      Input.touchAxis.x = 0; Input.touchAxis.y = 0; knob.style.transform = '';
+    };
+    zone.addEventListener('pointerup', end);
+    zone.addEventListener('pointercancel', end);
+
+    document.querySelectorAll('[data-btn]').forEach(b => {
+      const a = b.dataset.btn;
+      b.addEventListener('pointerdown', e => { e.preventDefault(); Sfx.unlock(); Input.press(a); b.classList.add('on'); });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
+        b.addEventListener(ev, () => { Input.release(a); b.classList.remove('on'); }));
+    });
+  },
+};
+
+</script>
+  <script>
+// 외부 파일 없이 WebAudio로 만드는 간단한 효과음
+const Sfx = (() => {
+  let ctx = null, muted = false;
+  function unlock() {
+    if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ctx = null; } }
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  const P = {
+    swing:  { type: 'triangle', f: 420, f2: 160, d: 0.08, v: 0.07 },
+    hit:    { type: 'square',   f: 240, f2: 70,  d: 0.10, v: 0.09 },
+    hurt:   { type: 'sawtooth', f: 180, f2: 50,  d: 0.25, v: 0.12 },
+    dash:   { type: 'sine',     f: 260, f2: 620, d: 0.10, v: 0.06 },
+    pickup: { type: 'square',   f: 660, f2: 1100, d: 0.14, v: 0.06 },
+    text:   { type: 'square',   f: 900, f2: 880, d: 0.02, v: 0.015 },
+    select: { type: 'triangle', f: 520, f2: 800, d: 0.08, v: 0.07 },
+    die:    { type: 'sawtooth', f: 300, f2: 40,  d: 0.35, v: 0.08 },
+    boss:   { type: 'sawtooth', f: 90,  f2: 40,  d: 0.7,  v: 0.15 },
+    shoot:  { type: 'sine',     f: 720, f2: 260, d: 0.12, v: 0.04 },
+    deflect:{ type: 'triangle', f: 1200, f2: 600, d: 0.08, v: 0.06 },
+  };
+  function play(name) {
+    if (muted || !ctx) return;
+    const p = P[name]; if (!p) return;
+    const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = p.type;
+    o.frequency.setValueAtTime(p.f, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(1, p.f2), t + p.d);
+    g.gain.setValueAtTime(p.v, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + p.d);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + p.d + 0.02);
+  }
+  return { play, unlock, toggle() { muted = !muted; return muted; } };
+})();
+
+</script>
+  <script>
+// 브라우저 localStorage에 진행 상황 저장 (실패해도 게임은 동작)
+const Save = {
+  KEY: 'ashen_forest_save_v1',
+  END_KEY: 'ashen_forest_endings_v1',
+  save(state) { try { localStorage.setItem(this.KEY, JSON.stringify(state)); } catch (e) {} },
+  load() { try { const s = localStorage.getItem(this.KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } },
+  has() { return !!this.load(); },
+  endings() { try { return JSON.parse(localStorage.getItem(this.END_KEY) || '[]'); } catch (e) { return []; } },
+  addEnding(id) {
+    const l = this.endings();
+    if (!l.includes(id)) { l.push(id); try { localStorage.setItem(this.END_KEY, JSON.stringify(l)); } catch (e) {} }
+  },
+};
+
+</script>
+  <script>
+// 타일맵, 충돌 처리, 타일 그리기
+const TILE = 32;
+
+// 타일 문자 → 속성. solid가 함수면 게임 상태(flags)에 따라 바뀜.
+const TILE_DEFS = {
+  '.': { solid: false, draw: 'grass' },
+  ',': { solid: false, draw: 'path' },
+  'f': { solid: false, draw: 'flower' },
+  'a': { solid: false, draw: 'ash' },
+  's': { solid: false, draw: 'stone' },
+  'T': { solid: true, draw: 'tree' },
+  'A': { solid: true, draw: 'deadtree' },
+  'r': { solid: true, draw: 'rock' },
+  '~': { solid: true, draw: 'water' },
+  'H': { solid: true, draw: 'house' },
+  'D': { solid: true, draw: 'door' },
+  'W': { solid: true, draw: 'well' },
+  '#': { solid: true, draw: 'wall' },
+  'P': { solid: true, draw: 'pillar' },
+  'C': { solid: true, draw: 'crystal' },
+  'B': { solid: f => !f.barrierDown, draw: 'barrier' },
+};
+
+function hash2(x, y) {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+
+class GameMap {
+  constructor(id, def) {
+    this.id = id; this.def = def;
+    this.pad = def.pad || 'T';
+    this.w = Math.max(...def.tiles.map(r => r.length));
+    this.h = def.tiles.length;
+    this.grid = def.tiles.map(r => r.padEnd(this.w, this.pad).split(''));
+    this.pw = this.w * TILE; this.ph = this.h * TILE;
+  }
+  tileAt(tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= this.w || ty >= this.h) return this.pad;
+    return this.grid[ty][tx];
+  }
+  isSolid(tx, ty) {
+    const d = TILE_DEFS[this.tileAt(tx, ty)] || TILE_DEFS['.'];
+    return typeof d.solid === 'function' ? d.solid(Game.state.flags) : d.solid;
+  }
+  solidAtPx(px, py) { return this.isSolid(Math.floor(px / TILE), Math.floor(py / TILE)); }
+
+  draw(c, cam, time) {
+    const x0 = Math.max(0, Math.floor(cam.x / TILE)), y0 = Math.max(0, Math.floor(cam.y / TILE));
+    const x1 = Math.min(this.w - 1, Math.floor((cam.x + Game.W) / TILE));
+    const y1 = Math.min(this.h - 1, Math.floor((cam.y + Game.H) / TILE));
+    // 1) 바닥
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+      drawTile(c, this, this.grid[ty][tx], tx, ty, tx * TILE, ty * TILE, time, false);
+    }
+    // 2) 키 큰 오브젝트(나무 등) — 위쪽으로 살짝 튀어나오게
+    for (let ty = y0; ty <= Math.min(this.h - 1, y1 + 1); ty++) for (let tx = x0; tx <= x1; tx++) {
+      drawTile(c, this, this.grid[ty][tx], tx, ty, tx * TILE, ty * TILE, time, true);
+    }
+  }
+}
+
+// 박스(중심 x,y / 반지름 r) 충돌 검사
+function boxHits(map, x, y, r) {
+  const x0 = Math.floor((x - r) / TILE), x1 = Math.floor((x + r - 0.01) / TILE);
+  const y0 = Math.floor((y - r) / TILE), y1 = Math.floor((y + r - 0.01) / TILE);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (map.isSolid(tx, ty)) return true;
+  return false;
+}
+
+// 축별로 나눠 이동 → 벽에 부딪히면 그 축만 멈춤 (벽 타고 미끄러짐)
+function moveEntity(e, dx, dy, map) {
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 4));
+  const sx = dx / steps, sy = dy / steps;
+  let hitX = false, hitY = false;
+  for (let i = 0; i < steps; i++) {
+    if (!hitX && sx) { e.x += sx; if (boxHits(map, e.x, e.y, e.r)) { e.x -= sx; hitX = true; } }
+    if (!hitY && sy) { e.y += sy; if (boxHits(map, e.x, e.y, e.r)) { e.y -= sy; hitY = true; } }
+  }
+  return { hitX, hitY };
+}
+
+// ───────── 타일 그리기 ─────────
+const PAL = {
+  grass: ['#3f7a3a', '#467f3f', '#3b7236'],
+  path: '#a58a5c', pathDark: '#957a4e',
+  darkgrass: ['#3a5a3e', '#3f6042', '#37553a'],
+  ash: ['#5e5866', '#665f6e', '#58525f'],
+  stone: ['#4a4658', '#4f4b5e', '#46425a'],
+};
+
+function drawTile(c, map, ch, tx, ty, x, y, time, tall) {
+  const h = hash2(tx, ty);
+  const kind = (TILE_DEFS[ch] || TILE_DEFS['.']).draw;
+  const ground = map.def.ground || 'grass';
+
+  if (!tall) {
+    switch (kind) {
+      case 'path':
+        c.fillStyle = PAL.path; c.fillRect(x, y, TILE, TILE);
+        c.fillStyle = PAL.pathDark;
+        c.fillRect(x + (h * 24 | 0), y + ((h * 97) % 1 * 24 | 0), 4, 3);
+        c.fillRect(x + ((h * 53) % 1 * 26 | 0), y + ((h * 31) % 1 * 26 | 0), 3, 2);
+        return;
+      case 'ash': baseFill(c, 'ash', h, x, y);
+        c.fillStyle = '#7a7286'; if (h > 0.5) c.fillRect(x + 6 + (h * 18 | 0), y + 10, 2, 2);
+        return;
+      case 'stone': case 'pillar': case 'crystal':
+        c.fillStyle = PAL.stone[(h * 3) | 0]; c.fillRect(x, y, TILE, TILE);
+        c.strokeStyle = '#3a3648'; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+        if (h > 0.8) { c.fillStyle = '#5a4a72'; c.fillRect(x + 8, y + 12, 10, 2); }
+        return;
+      case 'wall':
+        c.fillStyle = '#2a2636'; c.fillRect(x, y, TILE, TILE);
+        c.fillStyle = '#353046';
+        for (let r = 0; r < 4; r++) { const off = (r % 2) * 8; for (let k = -1; k < 3; k++) c.fillRect(x + off + k * 16 + 1, y + r * 8 + 1, 14, 6); }
+        return;
+      case 'water': {
+        c.fillStyle = '#2b4f7a'; c.fillRect(x, y, TILE, TILE);
+        c.fillStyle = '#4572a3';
+        const o = Math.sin(time * 2 + tx + ty * 0.7) * 4;
+        c.fillRect(x + 6 + o, y + 9, 10, 2); c.fillRect(x + 16 - o, y + 22, 9, 2);
+        return;
+      }
+      case 'house': case 'door': {
+        const roof = map.tileAt(tx, ty + 1) === 'H' || map.tileAt(tx, ty + 1) === 'D';
+        if (roof && kind === 'house') {
+          c.fillStyle = '#8a3b2e'; c.fillRect(x, y, TILE, TILE);
+          c.fillStyle = '#a2493a';
+          for (let r = 0; r < 4; r++) c.fillRect(x, y + r * 8, TILE, 4);
+          if (map.tileAt(tx, ty - 1) !== 'H') { c.fillStyle = '#5e271e'; c.fillRect(x, y, TILE, 3); }
+        } else {
+          c.fillStyle = '#c9b08a'; c.fillRect(x, y, TILE, TILE);
+          c.fillStyle = '#a88f6a'; c.fillRect(x, y, TILE, 3);
+          if (kind === 'door') {
+            c.fillStyle = '#5a3a22'; c.fillRect(x + 8, y + 6, 16, 26);
+            c.fillStyle = '#e8c56a'; c.fillRect(x + 20, y + 19, 2, 2);
+          } else if (h > 0.35) {
+            c.fillStyle = '#3d5675'; c.fillRect(x + 9, y + 9, 14, 12);
+            c.fillStyle = '#ffe8a8'; c.globalAlpha = 0.35 + 0.15 * Math.sin(time * 2 + tx); c.fillRect(x + 9, y + 9, 14, 12); c.globalAlpha = 1;
+            c.fillStyle = '#7a6040'; c.fillRect(x + 15, y + 9, 2, 12);
+          }
+        }
+        return;
+      }
+      case 'barrier':
+        baseFill(c, 'ash', h, x, y);
+        return;
+      default: // grass, flower, tree, deadtree, rock, well 바닥
+        baseFill(c, ground === 'ash' ? 'darkgrass' : 'grass', h, x, y);
+        if (kind === 'grass' && h > 0.7) { c.fillStyle = '#5a9a4a'; c.fillRect(x + (h * 20 | 0) + 4, y + 14, 2, 4); c.fillRect(x + (h * 20 | 0) + 7, y + 12, 2, 6); }
+        if (kind === 'flower') {
+          const cols = ['#ffd84a', '#ff8fb1', '#ffffff', '#9fd0ff'];
+          for (let i = 0; i < 3; i++) {
+            c.fillStyle = cols[(h * 7 + i) % 4 | 0];
+            c.fillRect(x + 6 + i * 8 + ((h * 13 * (i + 1)) % 1) * 4, y + 8 + ((h * 29 * (i + 2)) % 1) * 16, 3, 3);
+          }
+        }
+        return;
+    }
+  }
+
+  // ── 위층(키 큰 물체) ──
+  switch (kind) {
+    case 'tree': {
+      c.fillStyle = '#5a3c22'; c.fillRect(x + 12, y + 16, 8, 14);
+      c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(x + 16, y + 29, 12, 4, 0, 0, Math.PI * 2); c.fill();
+      const dark = map.def.ground === 'ash';
+      c.fillStyle = dark ? '#2f4a33' : '#245a2b';
+      c.beginPath(); c.arc(x + 16, y + 8, 16, 0, Math.PI * 2); c.fill();
+      c.fillStyle = dark ? '#3c5c40' : '#2f7036';
+      c.beginPath(); c.arc(x + 12, y + 4, 9, 0, Math.PI * 2); c.fill();
+      if (dark && h > 0.6) { c.fillStyle = '#6a6070'; c.beginPath(); c.arc(x + 21, y + 10, 5, 0, Math.PI * 2); c.fill(); }
+      return;
+    }
+    case 'deadtree':
+      c.strokeStyle = '#4a4050'; c.lineWidth = 4; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(x + 16, y + 30); c.lineTo(x + 16, y + 2);
+      c.moveTo(x + 16, y + 14); c.lineTo(x + 6, y + 4);
+      c.moveTo(x + 16, y + 10); c.lineTo(x + 26, y + 0);
+      c.moveTo(x + 16, y + 20); c.lineTo(x + 24, y + 14); c.stroke();
+      return;
+    case 'rock':
+      c.fillStyle = '#6d6a72'; c.beginPath(); c.ellipse(x + 16, y + 18, 14, 11, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#8a8790'; c.beginPath(); c.ellipse(x + 12, y + 14, 6, 4, 0, 0, Math.PI * 2); c.fill();
+      return;
+    case 'well':
+      c.fillStyle = '#7d7a84'; c.beginPath(); c.arc(x + 16, y + 18, 13, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#1e3350'; c.beginPath(); c.arc(x + 16, y + 18, 8, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#5a3c22'; c.fillRect(x + 3, y - 6, 3, 24); c.fillRect(x + 26, y - 6, 3, 24); c.fillRect(x + 1, y - 8, 30, 4);
+      return;
+    case 'pillar':
+      c.fillStyle = '#6a6480'; c.fillRect(x + 6, y - 14, 20, 44);
+      c.fillStyle = '#857e9c'; c.fillRect(x + 4, y - 16, 24, 5); c.fillRect(x + 4, y + 26, 24, 5);
+      c.fillStyle = '#4e4862'; c.fillRect(x + 10, y - 9, 3, 34);
+      return;
+    case 'crystal': {
+      const f = Game.state.flags;
+      const pure = f.crystalPure;
+      const pulse = 0.6 + 0.4 * Math.sin(time * 3);
+      const cx = x + (map.tileAt(tx + 1, ty) === 'C' ? TILE : 0);
+      if (map.tileAt(tx - 1, ty) === 'C') return; // 두 칸짜리 수정 → 한 번만 그림
+      const g = c.createRadialGradient(cx, y + 10, 2, cx, y + 10, 44);
+      g.addColorStop(0, pure ? `rgba(140,255,200,${0.5 * pulse})` : `rgba(190,110,255,${0.55 * pulse})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g; c.fillRect(cx - 48, y - 38, 96, 96);
+      c.fillStyle = '#3a3448'; c.fillRect(cx - 18, y + 20, 36, 10);
+      c.fillStyle = pure ? '#7dffc4' : '#a86cff';
+      c.beginPath(); c.moveTo(cx, y - 18); c.lineTo(cx + 12, y + 4); c.lineTo(cx, y + 22); c.lineTo(cx - 12, y + 4); c.closePath(); c.fill();
+      c.fillStyle = pure ? '#d8fff0' : '#e2c8ff';
+      c.beginPath(); c.moveTo(cx, y - 14); c.lineTo(cx + 5, y + 2); c.lineTo(cx, y + 6); c.closePath(); c.fill();
+      return;
+    }
+    case 'barrier': {
+      if (Game.state.flags.barrierDown) return;
+      const a = 0.45 + 0.2 * Math.sin(time * 4 + tx);
+      c.fillStyle = `rgba(150,80,230,${a})`; c.fillRect(x, y - 6, TILE, TILE + 6);
+      c.fillStyle = `rgba(230,200,255,${a})`;
+      for (let i = 0; i < 3; i++) c.fillRect(x + ((time * 20 + i * 11 + tx * 7) % TILE), y - 6 + i * 12, 2, 8);
+      return;
+    }
+  }
+}
+
+function baseFill(c, key, h, x, y) {
+  c.fillStyle = PAL[key][(h * 3) | 0]; c.fillRect(x, y, TILE, TILE);
+}
+
+</script>
+  <script>
+// 캐릭터·UI 그리기 도우미 (이미지 파일 없이 도형으로 그림 → 나중에 스프라이트로 교체 가능)
+function ellipse(c, x, y, rx, ry) { c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); }
+function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); }
+
+// look: { skin, hair, body, legs, accent, hairStyle:'short'|'long'|'bald'|'hood', beard, robe, scale }
+function drawPerson(c, x, y, L, face, t, moving, flash) {
+  const s = L.scale || 1;
+  const col = k => (flash ? '#ffffff' : L[k]);
+  const bob = moving ? -Math.abs(Math.sin(t * 10)) * 2 : Math.sin(t * 2) * 0.6;
+  const step = moving ? Math.sin(t * 12) * 2.5 : 0;
+
+  c.fillStyle = 'rgba(0,0,0,.3)'; ellipse(c, x, y + 11 * s, 9 * s, 3.5 * s);
+  // 다리
+  c.fillStyle = col('legs');
+  c.fillRect(x - 5 * s, y + 2 * s, 4 * s, (8 - Math.max(0, step)) * s);
+  c.fillRect(x + 1 * s, y + 2 * s, 4 * s, (8 - Math.max(0, -step)) * s);
+  // 몸
+  c.fillStyle = col('body');
+  c.fillRect(x - 7 * s, y - 8 * s + bob, 14 * s, (L.robe ? 18 : 12) * s);
+  if (L.accent) { c.fillStyle = col('accent'); c.fillRect(x - 7 * s, y - 8 * s + bob, 14 * s, 3 * s); }
+  // 머리
+  const hy = y - 14 * s + bob;
+  if (L.hairStyle === 'hood') {
+    c.fillStyle = col('hair'); circle(c, x, hy, 8.5 * s);
+    if (face !== 'up') {
+      c.fillStyle = col('skin'); circle(c, x + (face === 'left' ? -2 : face === 'right' ? 2 : 0) * s, hy + 1.5 * s, 5 * s);
+    }
+  } else {
+    c.fillStyle = col('skin'); circle(c, x, hy, 7 * s);
+    if (L.hairStyle !== 'bald') {
+      c.fillStyle = col('hair');
+      if (face === 'up') circle(c, x, hy, 7.3 * s);
+      else { c.beginPath(); c.arc(x, hy - 1 * s, 7.5 * s, Math.PI, 0); c.fill(); }
+      if (L.hairStyle === 'long') { c.fillRect(x - 7.5 * s, hy - 1 * s, 3 * s, 10 * s); c.fillRect(x + 4.5 * s, hy - 1 * s, 3 * s, 10 * s); }
+    }
+  }
+  if (L.beard && face !== 'up') { c.fillStyle = col('beard'); c.beginPath(); c.arc(x, hy + 3 * s, 5 * s, 0, Math.PI); c.fill(); }
+  // 눈
+  if (face !== 'up') {
+    c.fillStyle = flash ? '#fff' : (L.eye || '#1a1420');
+    if (face === 'down') { c.fillRect(x - 3 * s, hy + 0.5 * s, 2 * s, 2 * s); c.fillRect(x + 1 * s, hy + 0.5 * s, 2 * s, 2 * s); }
+    else c.fillRect(x + (face === 'left' ? -4 : 2) * s, hy + 0.5 * s, 2 * s, 2 * s);
+  }
+}
+
+// 7x6 픽셀 하트 (fill: 0 빈칸, 1 반칸, 2 가득)
+const HEART = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+function drawHeart(c, x, y, fill) {
+  const p = 2;
+  for (let r = 0; r < 6; r++) for (let k = 0; k < 7; k++) {
+    if (HEART[r][k] !== 'X') continue;
+    const full = fill === 2 || (fill === 1 && k <= 3);
+    c.fillStyle = full ? '#ff4f6a' : '#3a2a3e';
+    c.fillRect(x + k * p, y + r * p, p, p);
+  }
+}
+
+function textShadow(c, str, x, y, color = '#fff', align = 'left') {
+  c.textAlign = align;
+  c.fillStyle = 'rgba(0,0,0,.75)'; c.fillText(str, x + 1, y + 1);
+  c.fillStyle = color; c.fillText(str, x, y);
+}
+
+const FONT = '"Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+
+</script>
+  <script>
+// 플레이어, 적, NPC
+const FACE_VEC = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[(Math.random() * arr.length) | 0];
+
+// ───────────────────── 플레이어 ─────────────────────
+class Player {
+  constructor(x, y) {
+    this.x = x; this.y = y; this.r = 10;
+    this.face = 'down'; this.speed = 130;
+    this.atk = null; this.atkCd = 0;
+    this.dashT = 0; this.dashCd = 0; this.dashV = { x: 0, y: 0 };
+    this.inv = 0; this.kb = { x: 0, y: 0 };
+    this.t = 0; this.moving = false;
+  }
+  update(dt, map) {
+    this.t += dt; this.atkCd -= dt; this.dashCd -= dt; this.inv -= dt;
+    const ax = Input.axis();
+
+    if (this.dashT > 0) {
+      this.dashT -= dt;
+      moveEntity(this, this.dashV.x * dt, this.dashV.y * dt, map);
+      if (Math.random() < 0.6) Game.particle(this.x, this.y - 6, 0, 0, 0.25, 'rgba(140,180,255,.6)', 8);
+    } else {
+      const spd = this.speed * (this.atk ? 0.35 : 1);
+      this.moving = !!(ax.x || ax.y);
+      if (this.moving && !this.atk) {
+        this.face = Math.abs(ax.x) > Math.abs(ax.y) ? (ax.x > 0 ? 'right' : 'left') : (ax.y > 0 ? 'down' : 'up');
+      }
+      moveEntity(this, ax.x * spd * dt + this.kb.x * dt, ax.y * spd * dt + this.kb.y * dt, map);
+    }
+    const k = Math.exp(-10 * dt); this.kb.x *= k; this.kb.y *= k;
+
+    if (Input.hit('dash') && this.dashCd <= 0 && !this.atk) {
+      const d = (ax.x || ax.y) ? ax : FACE_VEC[this.face];
+      const l = Math.hypot(d.x, d.y) || 1;
+      this.dashV = { x: d.x / l * 380, y: d.y / l * 380 };
+      this.dashT = 0.16; this.dashCd = 0.55; this.inv = Math.max(this.inv, 0.22);
+      Sfx.play('dash');
+    }
+    if (Input.hit('attack') && this.atkCd <= 0 && this.dashT <= 0) {
+      this.atk = { t: 0, hit: new Set(), dir: FACE_VEC[this.face] };
+      this.atkCd = 0.32; Sfx.play('swing');
+    }
+    if (this.atk) {
+      this.atk.t += dt;
+      if (this.atk.t >= 0.03 && this.atk.t <= 0.17) {
+        const d = this.atk.dir;
+        Game.playerAttack({ x: this.x + d.x * 22, y: this.y - 4 + d.y * 22, r: 20 }, this.atk.hit);
+      }
+      if (this.atk.t > 0.24) this.atk = null;
+    }
+  }
+  hurt(dmg, fx, fy) {
+    if (this.inv > 0 || Game.mode !== 'play') return;
+    Game.state.hp -= dmg;
+    this.inv = 1.0;
+    const dx = this.x - fx, dy = this.y - fy, l = Math.hypot(dx, dy) || 1;
+    this.kb = { x: dx / l * 280, y: dy / l * 280 };
+    Game.shake = Math.max(Game.shake, 0.25); Game.hitstop = 0.06;
+    Sfx.play('hurt');
+    for (let i = 0; i < 8; i++) Game.particle(this.x, this.y - 6, rand(-80, 80), rand(-80, 80), 0.4, '#ff5a6a', 3);
+    if (Game.state.hp <= 0) { Game.state.hp = 0; Game.gameOver(); }
+  }
+  draw(c) {
+    if (this.inv > 0 && this.dashT <= 0 && Math.floor(this.inv * 14) % 2 === 0) return;
+    const L = CHARACTERS.ren.look;
+    const blade = Game.state.swordLv > 1 ? '#b98cff' : '#d8dde8';
+    // 등 뒤의 검 (위를 볼 때는 먼저 그림)
+    if (!this.atk && this.face !== 'down') this.drawSheath(c, blade);
+    drawPerson(c, this.x, this.y, L, this.face, this.t, this.moving, false);
+    if (!this.atk && this.face === 'down') this.drawSheath(c, blade);
+    if (this.atk) {
+      const p = Math.min(1, this.atk.t / 0.17);
+      const base = Math.atan2(this.atk.dir.y, this.atk.dir.x);
+      const a0 = base - 1.3, a1 = a0 + 2.6 * p;
+      c.save();
+      c.globalAlpha = 1 - Math.max(0, (this.atk.t - 0.17) / 0.07);
+      c.strokeStyle = Game.state.swordLv > 1 ? 'rgba(190,140,255,.7)' : 'rgba(255,255,255,.65)';
+      c.lineWidth = 7; c.lineCap = 'round';
+      c.beginPath(); c.arc(this.x, this.y - 4, 24, a0, a1); c.stroke();
+      c.strokeStyle = blade; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(this.x + Math.cos(a1) * 8, this.y - 4 + Math.sin(a1) * 8);
+      c.lineTo(this.x + Math.cos(a1) * 28, this.y - 4 + Math.sin(a1) * 28); c.stroke();
+      c.restore();
+    }
+  }
+  drawSheath(c, blade) {
+    c.strokeStyle = blade; c.lineWidth = 2;
+    const sx = this.face === 'left' ? this.x + 6 : this.x - 6;
+    c.beginPath(); c.moveTo(sx, this.y - 14); c.lineTo(sx + (this.face === 'left' ? -4 : 4), this.y + 4); c.stroke();
+  }
+}
+
+// ───────────────────── 적 ─────────────────────
+class Enemy {
+  constructor(type, x, y, opts = {}) {
+    const d = ENEMY_TYPES[type];
+    this.type = type; this.def = d; this.x = x; this.y = y;
+    this.hp = d.hp; this.maxHp = d.hp; this.r = d.r;
+    this.state = 'idle'; this.st = 0; this.cd = rand(0.6, 1.6);
+    this.kb = { x: 0, y: 0 }; this.flash = 0; this.iframe = 0;
+    this.t = Math.random() * 10; this.dead = false; this.summoned = !!opts.summoned;
+    this.face = 1; this.wanderT = 0; this.wdir = { x: 0, y: 0 }; this.cdir = { x: 0, y: 1 };
+    this.moving = false; this.lookFace = 'down';
+  }
+  setState(s) { this.state = s; this.st = 0; this.fired = false; this.fired2 = false; }
+
+  update(dt, map, p) {
+    this.t += dt; this.st += dt; this.cd -= dt; this.flash -= dt; this.iframe -= dt;
+    const dx = p.x - this.x, dy = p.y - this.y, dist = Math.hypot(dx, dy) || 1;
+    const nx = dx / dist, ny = dy / dist, d = this.def;
+    let m = { mx: 0, my: 0 };
+
+    switch (d.ai) {
+      case 'chase':
+        if (dist < d.sight) m = { mx: nx * d.speed, my: ny * d.speed }; else m = this.wander(dt);
+        break;
+      case 'lunge':
+        if (this.state === 'idle') {
+          if (dist < d.sight) {
+            m = { mx: nx * d.speed, my: ny * d.speed };
+            if (dist < 140 && this.cd <= 0) { this.setState('windup'); this.cdir = { x: nx, y: ny }; }
+          } else m = this.wander(dt);
+        } else if (this.state === 'windup') { if (this.st > 0.45) { this.setState('lunge'); Sfx.play('dash'); } }
+        else if (this.state === 'lunge') { m = { mx: this.cdir.x * 300, my: this.cdir.y * 300 }; if (this.st > 0.32) this.setState('rest'); }
+        else if (this.state === 'rest') { if (this.st > 0.6) { this.setState('idle'); this.cd = rand(1, 2); } }
+        break;
+      case 'shooter':
+        if (dist < d.sight) {
+          const want = dist < 110 ? -1 : dist > 170 ? 1 : 0, side = Math.sin(this.t * 0.9) * 0.6;
+          m = { mx: (nx * want - ny * side) * d.speed, my: (ny * want + nx * side) * d.speed };
+          if (this.cd <= 0) { Game.shoot(this.x, this.y, nx, ny, 150, { color: '#c9a2ff' }); this.cd = rand(1.7, 2.4); }
+        } else m = this.wander(dt);
+        break;
+      case 'boss': m = this.bossAI(dist, nx, ny); break;
+      case 'duelist': m = this.duelAI(dist, nx, ny, p); break;
+    }
+    if (m.mx < -1) this.face = -1; else if (m.mx > 1) this.face = 1;
+    this.moving = Math.abs(m.mx) + Math.abs(m.my) > 1;
+    if (this.moving) this.lookFace = Math.abs(m.mx) > Math.abs(m.my) ? (m.mx > 0 ? 'right' : 'left') : (m.my > 0 ? 'down' : 'up');
+
+    const res = moveEntity(this, (m.mx + this.kb.x) * dt, (m.my + this.kb.y) * dt, map);
+    if (this.state === 'charge' && this.st > 0.6 && (res.hitX || res.hitY)) {
+      Game.shake = 0.4; Sfx.play('hit'); this.setState('stun');
+    }
+    const k = Math.exp(-10 * dt); this.kb.x *= k; this.kb.y *= k;
+    if (dist < this.r + p.r - 2) p.hurt(d.dmg, this.x, this.y);
+  }
+
+  wander(dt) {
+    this.wanderT -= dt;
+    if (this.wanderT <= 0) {
+      this.wanderT = rand(1, 2.5);
+      const a = Math.random() * Math.PI * 2;
+      this.wdir = Math.random() < 0.35 ? { x: 0, y: 0 } : { x: Math.cos(a), y: Math.sin(a) };
+    }
+    return { mx: this.wdir.x * this.def.speed * 0.4, my: this.wdir.y * this.def.speed * 0.4 };
+  }
+
+  // 보스: 타락한 수호자
+  bossAI(dist, nx, ny) {
+    const phase2 = this.hp <= this.maxHp / 2;
+    if (phase2 && !this.enraged) {
+      this.enraged = true; Game.shake = 0.5; Sfx.play('boss'); Game.toast('수호자가 분노했다!');
+      this.setState('ring');
+    }
+    const sp = this.def.speed * (phase2 ? 1.35 : 1);
+    switch (this.state) {
+      case 'idle': case 'walk':
+        if (this.st > (phase2 ? 1.1 : 1.7)) {
+          let next = pick(phase2 ? ['charge', 'ring', 'volley', 'summon', 'charge'] : ['charge', 'volley', 'charge', 'volley']);
+          if (next === 'summon' && Game.enemies.filter(e => e.summoned && !e.dead).length >= 3) next = 'ring';
+          this.setState(next);
+        }
+        return { mx: nx * sp, my: ny * sp };
+      case 'charge':
+        if (this.st < 0.6) { this.cdir = { x: nx, y: ny }; return { mx: 0, my: 0 }; }
+        if (this.st < 1.3) return { mx: this.cdir.x * 340, my: this.cdir.y * 340 };
+        this.setState('walk'); return { mx: 0, my: 0 };
+      case 'stun':
+        if (this.st > 0.9) this.setState('walk');
+        return { mx: 0, my: 0 };
+      case 'volley': {
+        const fire = () => { const base = Math.atan2(ny, nx); for (const a of [-0.32, 0, 0.32]) Game.shoot(this.x, this.y - 10, Math.cos(base + a), Math.sin(base + a), 170, { r: 7, color: '#d08cff' }); };
+        if (!this.fired && this.st > 0.4) { this.fired = true; fire(); }
+        if (phase2 && !this.fired2 && this.st > 0.8) { this.fired2 = true; fire(); }
+        if (this.st > 1.2) this.setState('walk');
+        return { mx: 0, my: 0 };
+      }
+      case 'ring': {
+        const ring = off => { const n = 14; for (let i = 0; i < n; i++) { const a = off + i / n * Math.PI * 2; Game.shoot(this.x, this.y - 10, Math.cos(a), Math.sin(a), 120, { r: 6, color: '#ff8cd0' }); } };
+        if (!this.fired && this.st > 0.5) { this.fired = true; ring(Math.random()); }
+        if (phase2 && !this.fired2 && this.st > 1.0) { this.fired2 = true; ring(Math.random() + 0.22); }
+        if (this.st > 1.6) this.setState('walk');
+        return { mx: 0, my: 0 };
+      }
+      case 'summon':
+        if (!this.fired && this.st > 0.6) {
+          this.fired = true; Sfx.play('boss');
+          for (const s of [-1, 1]) {
+            const sx = this.x + s * 48, sy = this.y + 20;
+            if (!boxHits(Game.map, sx, sy, 10)) {
+              Game.enemies.push(new Enemy('slime', sx, sy, { summoned: true }));
+              for (let i = 0; i < 10; i++) Game.particle(sx, sy, rand(-60, 60), rand(-60, 60), 0.5, '#a070ff', 3);
+            }
+          }
+        }
+        if (this.st > 1.2) this.setState('walk');
+        return { mx: 0, my: 0 };
+    }
+    this.setState('walk'); return { mx: 0, my: 0 };
+  }
+
+  // 보스: 검사 카엘
+  duelAI(dist, nx, ny, p) {
+    const phase2 = this.hp <= this.maxHp / 2;
+    const sp = this.def.speed * (phase2 ? 1.3 : 1);
+    switch (this.state) {
+      case 'idle': case 'walk': {
+        const want = dist > 100 ? 1 : dist < 70 ? -1 : 0, side = Math.sin(this.t * 1.3) > 0 ? 0.6 : -0.6;
+        if (this.st > (phase2 ? 0.8 : 1.1)) {
+          const r = Math.random();
+          this.setState(dist < 120 ? (r < 0.6 ? 'slash' : 'crescent') : (r < 0.55 ? 'dashin' : 'crescent'));
+        }
+        return { mx: (nx * want - ny * side) * sp, my: (ny * want + nx * side) * sp };
+      }
+      case 'dashin':
+        if (this.st < 0.3) { this.cdir = { x: nx, y: ny }; return { mx: 0, my: 0 }; }
+        if (this.st < 0.55) return { mx: this.cdir.x * 380, my: this.cdir.y * 380 };
+        this.setState('slash'); return { mx: 0, my: 0 };
+      case 'slash':
+        if (this.st < 0.32) { this.cdir = { x: nx, y: ny }; return { mx: 0, my: 0 }; }
+        if (!this.fired) {
+          this.fired = true; Sfx.play('swing');
+          const hx = this.x + this.cdir.x * 24, hy = this.y + this.cdir.y * 24;
+          Game.arcFx(this.x, this.y - 4, Math.atan2(this.cdir.y, this.cdir.x), '#c78cff');
+          if (Math.hypot(p.x - hx, p.y - hy) < 26 + p.r) p.hurt(this.def.dmg, this.x, this.y);
+        }
+        if (this.st > 0.65) this.setState('walk');
+        return { mx: 0, my: 0 };
+      case 'crescent':
+        if (!this.fired && this.st > 0.35) {
+          this.fired = true;
+          const base = Math.atan2(ny, nx), spread = phase2 ? [-0.5, -0.25, 0, 0.25, 0.5] : [-0.25, 0, 0.25];
+          for (const a of spread) Game.shoot(this.x, this.y - 6, Math.cos(base + a), Math.sin(base + a), 200, { r: 6, color: '#7b4cc9' });
+        }
+        if (this.st > 0.8) this.setState('walk');
+        return { mx: 0, my: 0 };
+    }
+    this.setState('walk'); return { mx: 0, my: 0 };
+  }
+
+  hit(dmg, fx, fy) {
+    if (this.iframe > 0 || this.dead) return false;
+    this.hp -= dmg; this.flash = 0.12; this.iframe = 0.12;
+    const dx = this.x - fx, dy = this.y - fy, l = Math.hypot(dx, dy) || 1;
+    const kb = this.def.boss ? 40 : 240;
+    this.kb = { x: dx / l * kb, y: dy / l * kb };
+    if (this.state === 'windup' && !this.def.boss) this.setState('rest'); // 돌진 준비 중 맞으면 끊김
+    Sfx.play('hit'); Game.hitstop = 0.04;
+    for (let i = 0; i < 6; i++) Game.particle(this.x, this.y, rand(-90, 90), rand(-90, 90), 0.35, this.def.blood || '#c9a2ff', 3);
+    if (this.hp <= 0) { this.dead = true; Game.onEnemyDeath(this); }
+    return true;
+  }
+
+  draw(c) {
+    const fl = this.flash > 0, x = this.x, y = this.y, d = this.def;
+    switch (this.type) {
+      case 'slime': {
+        const sq = 1 + Math.sin(this.t * 6) * 0.08;
+        c.fillStyle = 'rgba(0,0,0,.3)'; ellipse(c, x, y + 9, 11, 3.5);
+        c.fillStyle = fl ? '#fff' : (this.summoned ? '#8a4fb0' : '#6b4f9a');
+        ellipse(c, x, y + 2 - (sq - 1) * 20, 12 * sq, 10 / sq);
+        c.fillStyle = fl ? '#fff' : '#9b7fd0'; ellipse(c, x - 4, y - 3, 4, 2.5);
+        c.fillStyle = '#1a1020'; c.fillRect(x - 5 + this.face, y, 2, 3); c.fillRect(x + 3 + this.face, y, 2, 3);
+        break;
+      }
+      case 'wolf': {
+        c.save(); c.translate(x, y); c.scale(this.face, 1);
+        c.fillStyle = 'rgba(0,0,0,.3)'; ellipse(c, 0, 10, 14, 4);
+        const body = fl ? '#fff' : this.state === 'windup' ? (Math.floor(this.st * 20) % 2 ? '#a33a3a' : '#5d4f5c') : '#4d4752';
+        c.fillStyle = body; ellipse(c, -2, 2, 13, 8);
+        c.fillStyle = fl ? '#fff' : '#5d5664'; circle(c, 10, -3, 7);
+        c.beginPath(); c.moveTo(7, -8); c.lineTo(9, -15); c.lineTo(12, -8); c.fill();
+        c.beginPath(); c.moveTo(11, -8); c.lineTo(14, -14); c.lineTo(15, -6); c.fill();
+        c.fillStyle = '#ff4a4a'; c.fillRect(11, -5, 3, 2);
+        c.strokeStyle = body; c.lineWidth = 3; c.beginPath(); c.moveTo(-14, 0); c.lineTo(-20, -6 + Math.sin(this.t * 8) * 2); c.stroke();
+        c.fillStyle = body; const lg = this.moving ? Math.sin(this.t * 14) * 2 : 0;
+        c.fillRect(-9, 7, 3, 6 + lg); c.fillRect(4, 7, 3, 6 - lg);
+        c.restore();
+        break;
+      }
+      case 'wisp': {
+        const fy = y - 6 + Math.sin(this.t * 3) * 3;
+        const g = c.createRadialGradient(x, fy, 1, x, fy, 18);
+        g.addColorStop(0, fl ? 'rgba(255,255,255,.9)' : 'rgba(200,150,255,.7)'); g.addColorStop(1, 'rgba(120,60,200,0)');
+        c.fillStyle = g; circle(c, x, fy, 18);
+        c.fillStyle = fl ? '#fff' : '#efe0ff'; circle(c, x, fy, 5);
+        c.fillStyle = 'rgba(0,0,0,.2)'; ellipse(c, x, y + 10, 6, 2);
+        if (Math.random() < 0.2) Game.particle(x + rand(-4, 4), fy, 0, -20, 0.5, 'rgba(200,160,255,.7)', 2);
+        break;
+      }
+      case 'guardian': this.drawGuardian(c, fl); break;
+      case 'kael': {
+        const tele = (this.state === 'slash' || this.state === 'dashin') && this.st < 0.32;
+        if (tele) { c.fillStyle = 'rgba(200,120,255,.35)'; circle(c, x, y - 4, 20 + Math.sin(this.st * 40) * 2); }
+        drawPerson(c, x, y, CHARACTERS.kael.look, this.lookFace, this.t, this.moving, fl);
+        c.strokeStyle = '#9b6cff'; c.lineWidth = 3;
+        c.beginPath(); c.moveTo(x + 8 * this.face, y - 2); c.lineTo(x + 18 * this.face, y - 16); c.stroke();
+        break;
+      }
+    }
+  }
+
+  drawGuardian(c, fl) {
+    const x = this.x, y = this.y, phase2 = this.hp <= this.maxHp / 2;
+    c.fillStyle = 'rgba(0,0,0,.35)'; ellipse(c, x, y + 20, 26, 7);
+    if (phase2) { c.fillStyle = `rgba(255,60,140,${0.15 + 0.1 * Math.sin(this.t * 6)})`; circle(c, x, y - 6, 40); }
+    if (this.state === 'charge' && this.st < 0.6) { c.fillStyle = `rgba(255,80,80,${0.3 + 0.3 * Math.sin(this.st * 40)})`; circle(c, x, y - 6, 34); }
+    const bob = Math.sin(this.t * 2) * 2;
+    // 다리
+    c.fillStyle = fl ? '#fff' : '#2c2236';
+    const lg = this.moving ? Math.sin(this.t * 8) * 3 : 0;
+    c.fillRect(x - 14, y + 4, 8, 16 + lg); c.fillRect(x + 6, y + 4, 8, 16 - lg);
+    // 몸통
+    c.fillStyle = fl ? '#fff' : '#3b2f4a'; ellipse(c, x, y - 4 + bob, 24, 18);
+    c.fillStyle = fl ? '#fff' : '#4f5a3f'; ellipse(c, x - 8, y - 12 + bob, 8, 5); ellipse(c, x + 10, y - 2 + bob, 6, 4);
+    // 머리 + 뿔
+    const hy = y - 26 + bob;
+    c.strokeStyle = fl ? '#fff' : '#5a4632'; c.lineWidth = 3; c.lineCap = 'round';
+    c.beginPath();
+    for (const s of [-1, 1]) {
+      c.moveTo(x + s * 6, hy - 6); c.lineTo(x + s * 16, hy - 22);
+      c.moveTo(x + s * 11, hy - 14); c.lineTo(x + s * 22, hy - 14);
+      c.moveTo(x + s * 14, hy - 19); c.lineTo(x + s * 12, hy - 30);
+    }
+    c.stroke();
+    c.fillStyle = fl ? '#fff' : '#45384f'; circle(c, x, hy, 12);
+    c.fillStyle = phase2 ? '#ff5a8a' : '#c78cff';
+    c.fillRect(x - 6, hy - 1, 4, 3); c.fillRect(x + 2, hy - 1, 4, 3);
+  }
+}
+
+// ───────────────────── NPC ─────────────────────
+class NPC {
+  constructor(d) {
+    this.d = d; this.id = d.id; this.char = CHARACTERS[d.char];
+    this.x = (d.x + 0.5) * TILE; this.y = (d.y + 0.5) * TILE; this.r = 11;
+    this.face = d.face || 'down'; this.t = Math.random() * 5;
+  }
+  update(dt, p) {
+    this.t += dt;
+    const dx = p.x - this.x, dy = p.y - this.y;
+    if (Math.hypot(dx, dy) < 90) this.face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  }
+  dialogueId() { return typeof this.d.talk === 'function' ? this.d.talk(Game.state.flags) : this.d.talk; }
+  hasMark() { return this.d.mark ? this.d.mark(Game.state.flags) : false; }
+  draw(c) { drawPerson(c, this.x, this.y, this.char.look, this.face, this.t, false, false); }
+}
+
+</script>
+  <script>
+// 대화 시스템
+// 대사 한 줄(step) 형식은 data/dialogues.js 맨 위 설명 참고
+function checkCond(c) {
+  const f = Game.state.flags;
+  if (!c) return true;
+  if (typeof c === 'function') return !!c(f, Game.state);
+  if (Array.isArray(c)) return c.every(checkCond);
+  if (c[0] === '!') return !f[c.slice(1)];
+  return !!f[c];
+}
+function applyEffects(o) {
+  const f = Game.state.flags;
+  if (o.set) Object.assign(f, o.set);
+  if (o.add) for (const k in o.add) f[k] = (f[k] || 0) + o.add[k];
+}
+
+// 대사에서 호출할 수 있는 동작들 — 새 기능이 필요하면 여기에 추가
+const Actions = {
+  givePotions(n) { Game.state.potions += n; Sfx.play('pickup'); },
+  swordUp() { Game.state.swordLv = 2; Sfx.play('pickup'); },
+  heal() { Game.state.hp = Game.state.maxHp; Sfx.play('pickup'); },
+  toast(msg) { Game.toast(msg); },
+  spawnBoss() { Game.spawnBoss(); },
+  startDuel() { Game.startDuel(); },
+  kaelAppear() { Game.kaelAppear(); },
+  ending(id) { Game.showEnding(id); },
+  save() { Game.save(); },
+};
+
+const Dialogue = {
+  active: false,
+  init() {
+    this.el = document.getElementById('dialogue');
+    this.nameEl = this.el.querySelector('.name');
+    this.textEl = this.el.querySelector('.text');
+    this.choicesEl = this.el.querySelector('.choices');
+    this.el.addEventListener('click', e => {
+      if (e.target.tagName === 'BUTTON') return;
+      if (this.active && !this.choices) this.advance();
+    });
+  },
+  start(id, onDone) {
+    const s = DIALOGUES[id];
+    if (!s) { console.warn('대화를 찾을 수 없음:', id); return; }
+    this.script = s; this.idx = 0; this.active = true; this.onDone = onDone || null;
+    Game.mode = 'dialogue';
+    document.body.classList.add('talking');
+    this.el.classList.remove('hidden');
+    this.step();
+  },
+  step() {
+    for (let guard = 0; guard < 500; guard++) {
+      if (!this.script || this.idx >= this.script.length) return this.close();
+      const l = this.script[this.idx];
+      if (l.if && !checkCond(l.if)) { this.idx++; continue; }
+      applyEffects(l);
+      if (l.run) Actions[l.run](l.arg);
+      if (l.goto) { this.script = DIALOGUES[l.goto]; this.idx = 0; continue; }
+      if (l.exit) return this.close(l.exit, l.arg);
+      if (l.end) return this.close();
+      if (l.t != null || l.choices) return this.show(l);
+      this.idx++;
+    }
+  },
+  show(l) {
+    const ch = l.n ? CHARACTERS[l.n] : null;
+    this.nameEl.textContent = ch ? ch.name : (l.n || '');
+    this.nameEl.style.color = ch ? ch.color : '#fff';
+    this.el.classList.toggle('narr', !l.n);
+    this.full = l.t || ''; this.shown = 0; this.lastN = -1;
+    this.textEl.textContent = '';
+    this.choicesEl.innerHTML = '';
+    this.choices = l.choices ? l.choices.filter(c => checkCond(c.if)) : null;
+    this.sel = 0;
+    this.typing = this.full.length > 0;
+    this.el.classList.toggle('typing', this.typing);
+    this.el.classList.remove('choosing');
+    if (!this.typing) this.finishTyping();
+  },
+  finishTyping() {
+    this.typing = false;
+    this.el.classList.remove('typing');
+    this.textEl.textContent = this.full;
+    if (this.choices) {
+      this.el.classList.add('choosing');
+      this.choices.forEach((c, i) => {
+        const b = document.createElement('button');
+        b.textContent = c.t;
+        b.addEventListener('click', e => { e.stopPropagation(); this.choose(i); });
+        b.addEventListener('pointerenter', () => { this.sel = i; this.renderSel(); });
+        this.choicesEl.appendChild(b);
+      });
+      this.renderSel();
+    }
+  },
+  renderSel() { [...this.choicesEl.children].forEach((b, i) => b.classList.toggle('sel', i === this.sel)); },
+  advance() {
+    if (this.typing) return this.finishTyping();
+    if (this.choices) return;
+    this.idx++; this.step();
+  },
+  choose(i) {
+    const c = this.choices && this.choices[i];
+    if (!c) return;
+    Sfx.play('select');
+    applyEffects(c);
+    this.choices = null;
+    if (c.run) Actions[c.run](c.arg);
+    if (c.exit) return this.close(c.exit, c.arg);
+    if (c.goto) { this.script = DIALOGUES[c.goto]; this.idx = 0; return this.step(); }
+    this.idx++; this.step();
+  },
+  close(action, arg) {
+    this.active = false; this.choices = null;
+    document.body.classList.remove('talking');
+    this.el.classList.add('hidden');
+    if (Game.mode === 'dialogue') Game.mode = 'play';
+    if (action) Actions[action](arg);
+    const cb = this.onDone; this.onDone = null;
+    if (cb) cb();
+  },
+  update(dt) {
+    if (!this.active) return;
+    if (this.typing) {
+      this.shown += dt * 38;
+      const n = Math.floor(this.shown);
+      if (n >= this.full.length) this.finishTyping();
+      else if (n !== this.lastN) {
+        this.textEl.textContent = this.full.slice(0, n);
+        if (n % 3 === 0) Sfx.play('text');
+        this.lastN = n;
+      }
+    }
+    if (this.choices && !this.typing) {
+      if (Input.hit('up')) { this.sel = (this.sel + this.choices.length - 1) % this.choices.length; this.renderSel(); }
+      if (Input.hit('down')) { this.sel = (this.sel + 1) % this.choices.length; this.renderSel(); }
+      if (Input.hit('act') || Input.hit('attack')) this.choose(this.sel);
+      return;
+    }
+    if (Input.hit('act') || Input.hit('attack')) this.advance();
+  },
+};
+
+</script>
+  <!-- 게임 데이터 (스토리를 바꾸려면 여기를 수정) -->
+  <script>
+// 등장인물: 대화창 이름/색, 외형
+// look 옵션: skin, hair, body, legs, accent, hairStyle('short'|'long'|'bald'|'hood'), beard, robe, scale, eye
+const CHARACTERS = {
+  ren:   { name: '렌',           color: '#8fc0ff', look: { skin: '#f1c9a5', hair: '#5a3a24', body: '#3f6fb5', legs: '#2c2c3a', accent: '#d8433f', hairStyle: 'short' } },
+  elder: { name: '바루 촌장',     color: '#e8c87a', look: { skin: '#e8c0a0', hair: '#e8e8e8', body: '#7a5a8a', legs: '#4a3a52', hairStyle: 'short', beard: '#f0f0f0', robe: true } },
+  mari:  { name: '마리',          color: '#9fe0a0', look: { skin: '#f6d2b5', hair: '#a0582c', body: '#4f9a5a', legs: '#3a5a3a', accent: '#f0e0a0', hairStyle: 'long', robe: true } },
+  tor:   { name: '대장장이 토르', color: '#ffa86a', look: { skin: '#d9a07a', hair: '#000', body: '#8a4a2a', legs: '#3a2a22', accent: '#5a5a5a', hairStyle: 'bald', beard: '#6a3a1a', scale: 1.15 } },
+  mina:  { name: '미나',          color: '#ffb3d1', look: { skin: '#f6d2b5', hair: '#2a1a1a', body: '#e07aa0', legs: '#5a3a4a', hairStyle: 'long', scale: 0.8 } },
+  kael:  { name: '카엘',          color: '#c8a8ff', look: { skin: '#e0c0b0', hair: '#2a1c3a', body: '#2f2440', legs: '#1a1424', accent: '#7b4cc9', hairStyle: 'hood', eye: '#c78cff' } },
+  grave: { name: '수호자 그레이브', color: '#c78cff' },
+};
+
+</script>
+  <script>
+// 적 종류. ai: chase(추적) | lunge(돌진) | shooter(원거리) | boss | duelist
+// 새 적을 만들려면 여기 추가하고, js/entities.js의 Enemy.draw에 모양을 추가하세요.
+const ENEMY_TYPES = {
+  slime:    { hp: 2,  r: 10, speed: 45, dmg: 1, sight: 170, ai: 'chase',   blood: '#9b7fd0' },
+  wolf:     { hp: 3,  r: 11, speed: 65, dmg: 1, sight: 200, ai: 'lunge',   blood: '#8a8090' },
+  wisp:     { hp: 2,  r: 9,  speed: 55, dmg: 1, sight: 230, ai: 'shooter', blood: '#e0c8ff' },
+  guardian: { hp: 30, r: 22, speed: 50, dmg: 2, sight: 999, ai: 'boss',    boss: true, name: '타락한 수호자 그레이브' },
+  kael:     { hp: 18, r: 11, speed: 95, dmg: 1, sight: 999, ai: 'duelist', boss: true, name: '그림자 검사 카엘', blood: '#7b4cc9' },
+};
+
+</script>
+  <script>
+/*
+ ─────────────────────────────────────────────
+  대사 작성법 (한 줄 = 한 step)
+ ─────────────────────────────────────────────
+  { n: 'mari', t: '안녕!' }           → 마리가 말함 (n은 characters.js의 키)
+  { t: '바람이 분다.' }                → n이 없으면 내레이션
+  { if: 'helpedMari', n:..., t:... }   → 조건이 맞을 때만 (앞에 !를 붙이면 반대)
+  { set: { quest: true } }             → 플래그 설정
+  { add: { courage: 1 } }              → 숫자 플래그 증가
+  { run: 'givePotions', arg: 2 }       → 동작 실행 (js/dialogue.js의 Actions)
+  { goto: 'other_id' }                 → 다른 대화로 이동
+  { exit: 'ending', arg: 'dawn' }      → 대화를 닫고 동작 실행
+  { n:..., t:..., choices: [           → 선택지
+      { t: '선택1', set: {...}, goto: '...' },
+      { t: '선택2', if: 'flag', exit: 'ending', arg: '...' },
+  ]}
+*/
+const DIALOGUES = {
+  // ═════════ 하늘마을 ═════════
+  intro: [
+    { t: '하늘마을. 숲과 별이 맞닿은 작은 마을.' },
+    { t: '그러나 한 달 전부터, 북쪽 숲이 잿빛으로 물들기 시작했다.' },
+    { n: 'ren', t: '오늘도 숲 쪽 하늘이 흐리네... 촌장님이 부르셨다고 했지.' },
+    { t: '(이동: WASD/방향키 · 대화: E · 공격: J/스페이스 · 대시: K/Shift · 물약: Q · 일시정지: Esc)' },
+  ],
+  locked_forest: [
+    { n: 'ren', t: '촌장님이 찾으셨지. 숲에 가기 전에 먼저 이야기를 들어보자.' },
+  ],
+
+  elder_first: [
+    { n: 'elder', t: '왔구나, 렌. 숲의 일 때문에 불렀다.' },
+    { n: 'elder', t: '잿빛 역병이 숲을 삼키고 있어. 어젯밤엔 마물이 마을 울타리까지 내려왔지.' },
+    { n: 'elder', t: '숲 깊은 곳 성소에는 오래전부터 숲을 지켜 온 수호자, 그레이브가 있다.\n그에게 무슨 일이 생긴 게 틀림없어.' },
+    { n: 'elder', t: '견습 기사인 네게 이런 부탁을 하는 게 미안하구나. 하지만 마을의 다른 기사들은 모두 왕도로 불려 갔어.', choices: [
+      { t: '맡겨 주세요. 반드시 원인을 찾아오겠습니다.', add: { courage: 1 } },
+      { t: '솔직히 무섭지만... 제가 아니면 누가 가겠어요.', add: { honesty: 1 } },
+    ] },
+    { if: 'courage', n: 'elder', t: '허허, 네 아버지를 꼭 닮았구나.' },
+    { if: 'honesty', n: 'elder', t: '두려움을 아는 자가 진짜 용기를 낼 수 있는 법이지.' },
+    { n: 'elder', t: '북쪽 숲길을 열어 두마. 떠나기 전에 마리와 토르에게도 들러 보거라.' },
+    { set: { quest: true }, run: 'toast', arg: '북쪽 숲길이 열렸다' },
+  ],
+  elder_repeat: [
+    { if: '!barrierDown', n: 'elder', t: '숲의 수호자는 이 마을의 오랜 벗이었다. 부디... 그를 구해 주거라.' },
+    { if: 'barrierDown', n: 'elder', t: '장벽이 사라졌다고? 장하구나. 성소는 숲 북쪽 끝에 있다.' },
+    { n: 'elder', t: '다쳤다면 쉬어 가거라.', run: 'heal' },
+    { t: '(체력이 모두 회복되었다)' },
+  ],
+
+  mari_first: [
+    { n: 'mari', t: '렌! 숲에 간다며? 조심해, 요즘 숲은 예전 숲이 아니야.' },
+    { n: 'mari', t: '사실 부탁이 하나 있는데... 어제 약초를 캐다가 마물을 피해 도망치느라 바구니를 숲에 두고 왔어.' },
+    { n: 'mari', t: '그 안에 「달빛꽃」이 들어 있어. 잿빛 역병을 정화할 수 있을지도 모르는 꽃이야.', choices: [
+      { t: '걱정 마, 꼭 찾아올게.', set: { promisedMari: true } },
+      { t: '지금은 마물 처리가 먼저야. 눈에 띄면 가져올게.' },
+    ] },
+    { if: 'promisedMari', n: 'mari', t: '고마워! 역시 렌이야.' },
+    { if: '!promisedMari', n: 'mari', t: '응... 그래도 혹시 보이면 부탁해.' },
+    { n: 'mari', t: '이거 받아. 내가 만든 회복 물약이야. 위험할 때 Q로 마셔!' },
+    { set: { metMari: true }, run: 'givePotions', arg: 1 },
+    { t: '(회복 물약을 1개 받았다)' },
+  ],
+  mari_wait: [
+    { n: 'mari', t: '바구니는 숲 서쪽 연못 근처였던 것 같아. 마물이 많으니 조심해!' },
+  ],
+  mari_return: [
+    { n: 'mari', t: '내 바구니! 정말 찾아왔구나!' },
+    { n: 'mari', t: '달빛꽃도 무사해... 렌, 이 꽃은 네가 가져가.' },
+    { n: 'mari', t: '잿빛에 물든 것에 닿게 하면 정화의 힘이 깃든대. 할머니가 그러셨어.' },
+    { n: 'mari', t: '그리고 물약 두 개 더. 무리하지 마, 알았지?' },
+    { set: { helpedMari: true }, run: 'givePotions', arg: 2 },
+    { t: '(「달빛꽃」과 회복 물약 2개를 받았다)' },
+  ],
+  mari_after: [
+    { n: 'mari', t: '달빛꽃은 마음을 비추는 꽃이래. 네가 바라는 대로 피어날 거야.' },
+  ],
+
+  tor_first: [
+    { n: 'tor', t: '숲에 간다고? 그 낡은 견습 검으로?' },
+    { n: 'tor', t: '흠... 제대로 된 검을 주고 싶지만, 잿빛에 물든 쇠는 아직 손질 중이야.' },
+    { n: 'tor', t: '대신 요령을 알려주지. 대시(K/Shift) 하는 순간엔 공격을 흘려낼 수 있다.' },
+    { n: 'tor', t: '늑대가 몸을 붉게 떨면 달려들기 직전이야. 옆으로 빠져!' },
+    { n: 'tor', t: '그리고 마법 구슬은 검으로 베어 없앨 수 있지. 겁먹지 말고 휘둘러.' },
+    { set: { metTor: true } },
+  ],
+  tor_repeat: [
+    { n: 'tor', t: '살아 돌아오면 제대로 된 검을 만들어 주마. 약속하지.' },
+  ],
+
+  mina: [
+    { if: '!quest', n: 'mina', t: '렌 오빠! 숲에 반짝이는 나비 봤어? 요즘은 회색 나비만 날아다녀...' },
+    { if: 'quest', n: 'mina', t: '엄마가 그러는데, 수호자님은 숲의 심장을 지키신대. 오빠가 꼭 도와줘!' },
+  ],
+
+  // ═════════ 잿빛 숲 ═════════
+  forest_enter: [
+    { t: '숲에 들어서자, 공기가 무겁게 가라앉았다.' },
+    { n: 'ren', t: '나무가... 잿빛으로 굳어 있어.' },
+    { t: '북쪽 길은 보랏빛 장벽으로 막혀 있다. 숲의 마물들이 장벽에 힘을 불어넣고 있는 것 같다.' },
+  ],
+  basket_found: [
+    { t: '덤불 속에 작은 약초 바구니가 놓여 있다.' },
+    { n: 'ren', t: '마리의 바구니다! 달빛꽃도 무사해.' },
+    { t: '(마리의 바구니를 얻었다. 마을로 돌아가 전해 주자)' },
+  ],
+  barrier_down: [
+    { t: '마지막 마물이 쓰러지자, 북쪽의 보랏빛 장벽이 흩어져 사라졌다.' },
+    { n: 'ren', t: '길이 열렸어. 이제 성소로...!' },
+  ],
+
+  kael_first: [
+    { n: 'kael', t: '...마을 사람인가. 이런 곳까지 혼자 오다니, 배짱이 좋군.' },
+    { n: 'ren', t: '당신은 누구죠?' },
+    { n: 'kael', t: '카엘. 떠돌이 검사다. 이 숲 깊은 곳에 있는 「숲의 심장」을 찾고 있지.' },
+    { n: 'kael', t: '제안을 하나 하지. 내 검을 빌려주마. 대신 성소의 수정을 손에 넣으면... 내게 넘겨라.', choices: [
+      { t: '좋아요, 거래하죠.', set: { metKael: true }, goto: 'kael_deal' },
+      { t: '수정은 숲의 것이에요. 거절하겠어요.', set: { metKael: true }, goto: 'kael_refuse' },
+    ] },
+  ],
+  kael_deal: [
+    { n: 'kael', t: '현명하군. 받아라, 「그림자 날」. 네 견습 검보다 두 배는 날카롭지.' },
+    { set: { kaelDeal: true }, run: 'swordUp' },
+    { t: '(「그림자 날」을 얻었다! 공격력이 2배가 되었다)' },
+    { n: 'kael', t: '약속은 잊지 마라, 견습 기사.' },
+  ],
+  kael_refuse: [
+    { n: 'kael', t: '...그런가. 고지식하군. 하지만 그런 눈빛, 싫지 않다.' },
+    { n: 'kael', t: '마음이 바뀌면 다시 오도록.' },
+  ],
+  kael_repeat: [
+    { if: 'kaelDeal', n: 'kael', t: '성소는 북쪽이다. 장벽을 걷어내려면 숲의 마물을 모두 쓰러뜨려라.' },
+    { if: 'kaelDeal', end: true },
+    { n: 'kael', t: '생각이 바뀌었나?', choices: [
+      { t: '...검을 빌릴게요. 거래하죠.', goto: 'kael_deal' },
+      { t: '아니요. 제 힘으로 하겠어요.' },
+    ] },
+  ],
+
+  // ═════════ 성소 ═════════
+  shrine_enter: [
+    { t: '고요한 성소. 중앙의 수정이 탁한 보랏빛으로 맥동하고 있다.' },
+  ],
+  boss_intro: [
+    { t: '수정 앞에서, 거대한 그림자가 몸을 일으켰다.' },
+    { n: 'grave', t: '...누구냐... 숲을... 더럽히는 자...' },
+    { n: 'ren', t: '당신이 수호자 그레이브죠? 정신 차려요! 숲이 죽어가고 있어요!' },
+    { n: 'grave', t: '숲은... 내가... 지킨다... 모두... 재가 되어라...!' },
+    { exit: 'spawnBoss' },
+  ],
+  after_boss: [
+    { t: '수호자의 거체가 무너져 내리며, 검은 연기가 흩어졌다.' },
+    { n: 'grave', t: '...아이야... 고맙구나... 너무 오래... 수정의 속삭임에 잠식되어 있었다...' },
+    { n: 'grave', t: '수정은 숲의 심장... 누군가 그 안에 잿빛 저주를 심었다...' },
+    { if: 'kaelBeaten', goto: 'crystal_choice' },
+    { t: '그때, 성소 입구에서 발소리가 울렸다.', run: 'kaelAppear' },
+    { if: 'kaelDeal', goto: 'kael_arrive_deal' },
+    { goto: 'kael_arrive' },
+  ],
+  kael_arrive_deal: [
+    { n: 'kael', t: '수고했다, 렌. 약속대로 수정을 받으러 왔다.' },
+    { n: 'grave', t: '그 기운... 너로구나... 수정에 저주를 심은 자가...!' },
+    { n: 'kael', t: '눈치 빠른 늙은이군. 그래, 숲의 힘을 모아 「잿빛 왕관」을 완성하는 게 내 목적이다.' },
+    { n: 'kael', t: '자, 렌. 약속을 지켜라.', choices: [
+      { t: '...약속은 약속이에요. 수정을 넘기죠.', exit: 'ending', arg: 'shadow' },
+      { t: '이런 줄 알았다면 거래하지 않았어요. 넘길 수 없어요!', goto: 'kael_fight' },
+    ] },
+  ],
+  kael_arrive: [
+    { n: 'kael', t: '역시 해냈군, 견습 기사. 덕분에 수고를 덜었다.' },
+    { n: 'grave', t: '그 기운... 너로구나... 수정에 저주를 심은 자가...!' },
+    { n: 'kael', t: '눈치 빠른 늙은이군. 그래, 숲의 힘을 모아 「잿빛 왕관」을 완성하는 게 내 목적이다.' },
+    { n: 'ren', t: '그렇게는 못 해요!' },
+    { goto: 'kael_fight' },
+  ],
+  kael_fight: [
+    { n: 'kael', t: '...좋다. 그렇다면 힘으로 빼앗을 뿐.' },
+    { exit: 'startDuel' },
+  ],
+  kael_defeated: [
+    { n: 'kael', t: '크윽... 견습 기사에게... 이 내가...' },
+    { n: 'kael', t: '기억해 둬라... 잿빛 왕관을 노리는 건 나 하나가 아니다...' },
+    { t: '카엘은 그림자 속으로 녹아들 듯 사라졌다.' },
+    { goto: 'crystal_choice' },
+  ],
+  crystal_choice: [
+    { n: 'grave', t: '아이야... 이제 수정의 운명은 너에게 달렸다.' },
+    { n: 'grave', t: '수정을 부수면 저주도 사라지겠지만... 숲의 축복도 함께 사라지겠지.' },
+    { if: 'helpedMari', n: 'grave', t: '...네게서 달빛꽃 향기가 나는구나. 그 꽃이라면... 어쩌면...' },
+    { t: '수정이 속삭인다. ─ 나를 취하라. 숲의 모든 힘이 너의 것이 되리라.', choices: [
+      { t: '수정을 부순다.', exit: 'ending', arg: 'dawn' },
+      { t: '달빛꽃으로 수정을 정화한다.', if: 'helpedMari', exit: 'ending', arg: 'guardian' },
+      { t: '수정의 힘을 받아들인다.', exit: 'ending', arg: 'ashking' },
+    ] },
+  ],
+};
+
+// 화면 오른쪽 위에 표시되는 현재 목표
+function currentObjective(f, g) {
+  const side = [];
+  if (f.gotBasket && !f.helpedMari) side.push('(선택) 마리에게 바구니 돌려주기');
+  let main;
+  if (!f.quest) main = '촌장 바루와 이야기하기';
+  else if (!f.barrierDown) main = g.def && g.def.clearFlag === 'barrierDown' ? `숲의 마물 처치 (남은 수: ${g.remainingEnemies()})` : '북쪽 잿빛 숲으로';
+  else if (!f.bossDead) main = '숲 북쪽 끝의 성소로';
+  else main = '수정의 운명을 정하기';
+  return [main, ...side];
+}
+
+</script>
+  <script>
+/*
+  맵 작성법
+  - tiles: 한 글자 = 한 칸(32px). 글자 뜻은 js/world.js의 TILE_DEFS 참고
+      .  풀    ,  흙길   f  꽃    a  잿빛 땅   s  돌바닥
+      T  나무  A  죽은 나무  r  바위  ~  물   H  집(지붕/벽)  D  문
+      W  우물  #  돌벽  P  기둥  C  수정  B  잿빛 장벽(barrierDown 플래그로 사라짐)
+  - 좌표(x, y)는 칸 단위. (0,0)이 왼쪽 위
+  - exits: 이 사각형에 들어가면 다른 맵으로. if 조건이 안 맞으면 locked 대화 표시
+  - triggers: 들어가면 대화/알림. once에 적은 플래그로 한 번만 실행
+*/
+const MAPS = {
+  village: {
+    name: '하늘마을',
+    ambient: 'leaves',
+    tiles: [
+      'TTTTTTTTTTTTTTT,,TTTTTTTTTTTTTTT',
+      'T..............,,..............T',
+      'T..HHHHH.......,,.......HHHHH..T',
+      'T..HHHHH.......,,.......HHHHH..T',
+      'T..HHDHH.......,,.......HHDHH..T',
+      'T....,.........,,.........,....T',
+      'T....,,,,,,,,,,,,,,,,,,,,,,....T',
+      'T.f............,,...........f..T',
+      'T.....f........,,......r.......T',
+      'T..HHHHH.......,,..............T',
+      'T..HHHHH....,,,,,,,,....~~~~...T',
+      'T..HHDHH....,......,....~~~~...T',
+      'T....,......,..W...,....~~~~...T',
+      'T....,,,,,,,,......,,,,,,,,....T',
+      'T...........,,,,,,,,...........T',
+      'T..f.......................f...T',
+      'T.....TT................TT.....T',
+      'T..............................T',
+      'T..............................T',
+      'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    ],
+    npcs: [
+      { id: 'elder', char: 'elder', x: 17, y: 12,
+        talk: f => (f.quest ? 'elder_repeat' : 'elder_first'), mark: f => !f.quest },
+      { id: 'mari', char: 'mari', x: 27, y: 5,
+        talk: f => !f.metMari ? 'mari_first' : f.helpedMari ? 'mari_after' : f.gotBasket ? 'mari_return' : 'mari_wait',
+        mark: f => !f.metMari || (f.gotBasket && !f.helpedMari) },
+      { id: 'tor', char: 'tor', x: 7, y: 5, talk: f => (f.metTor ? 'tor_repeat' : 'tor_first'), mark: f => !f.metTor },
+      { id: 'mina', char: 'mina', x: 9, y: 15, talk: 'mina' },
+    ],
+    exits: [
+      { x: 15, y: 0, w: 2, h: 1, to: 'forest', tx: 18.5, ty: 23, face: 'up', if: 'quest', locked: 'locked_forest', back: { x: 0, y: 1 } },
+    ],
+    onEnter(g, f) {
+      if (!f.introSeen) { f.introSeen = true; g.delay(0.5, () => Dialogue.start('intro')); }
+    },
+  },
+
+  forest: {
+    name: '잿빛 숲',
+    ground: 'ash',
+    ambient: 'ash',
+    tint: 'rgba(40,20,70,.18)',
+    vignette: 0.55,
+    clearFlag: 'barrierDown',
+    onClear: 'barrier_down',
+    tiles: [
+      'TTTTTTTTTTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTTTTTTTTTBBTTTTTTTTTTTTTTTTTTTT',
+      'T.....aaa.........,,.........aaa.......T',
+      'T..A.......TT.....,,...TT.......A......T',
+      'T.........TTTT....,,..TTTT.............T',
+      'T...r.......TT....,,...TT.....r........T',
+      'T...........................aa.........T',
+      'T....aaa......A.........aaaa....A......T',
+      'T...aaaaa...........................TTTT',
+      'T....aaa.....TTTT.......rr..........TTTT',
+      'TT...........TTTT...................TTTT',
+      'TTT.....A......TT.....A.......A........T',
+      'TT.....................................T',
+      'T......rr.................aaa..........T',
+      'T.....TTTT..............aaaaa..........T',
+      'T......TT................aaa..A...T....T',
+      'T......................................T',
+      'T..A.........TT..........aaa.......A...T',
+      'T............TTTT.......aaaaa..........T',
+      'T~~~~.........TT.........aaa...........T',
+      'T~~~~~~................................T',
+      'T~~~~~~~..........,,..........r........T',
+      'T.................,,...................T',
+      'T....TT...........,,.........TT........T',
+      'TTTTTTTTTTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTT',
+    ],
+    npcs: [
+      { id: 'kael', char: 'kael', x: 22, y: 21, face: 'left', if: '!bossDead',
+        talk: f => (f.metKael ? 'kael_repeat' : 'kael_first'), mark: f => !f.metKael },
+    ],
+    enemies: [
+      { type: 'slime', x: 8, y: 21 }, { type: 'slime', x: 31, y: 19 },
+      { type: 'slime', x: 10, y: 7 }, { type: 'slime', x: 28, y: 7 },
+      { type: 'wolf', x: 6, y: 12 }, { type: 'wolf', x: 33, y: 12 },
+      { type: 'wolf', x: 22, y: 16 }, { type: 'wolf', x: 14, y: 20 },
+      { type: 'wisp', x: 5, y: 4 }, { type: 'wisp', x: 33, y: 3 }, { type: 'wisp', x: 10, y: 16 },
+    ],
+    items: [
+      { id: 'basket', x: 2, y: 16, flag: 'gotBasket', dialogue: 'basket_found' },
+    ],
+    triggers: [
+      { x: 1, y: 22, w: 38, h: 1, once: 'forestIntro', dialogue: 'forest_enter' },
+      { x: 18, y: 2, w: 2, h: 1, if: '!barrierDown', toast: g => `잿빛 장벽이 길을 막고 있다 (남은 마물: ${g.remainingEnemies()})` },
+    ],
+    exits: [
+      { x: 18, y: 24, w: 2, h: 1, to: 'village', tx: 15.5, ty: 1 },
+      { x: 18, y: 0, w: 2, h: 1, to: 'shrine', tx: 11.5, ty: 15, face: 'up' },
+    ],
+  },
+
+  shrine: {
+    name: '숲의 성소',
+    pad: '#',
+    ambient: 'motes',
+    tint: 'rgba(60,20,90,.15)',
+    vignette: 0.6,
+    bossPos: { x: 11, y: 5 },
+    checkpoint: { x: 11.5, y: 9 }, // 보스 처치 후 저장 위치
+    tiles: [
+      '########################',
+      '#ssssssssssssssssssssss#',
+      '#ssPsssssssCCsssssssPss#',
+      '#ssssssssssssssssssssss#',
+      '#ssssssssssssssssssssss#',
+      '#sPssssssssssssssssssPs#',
+      '#ssssssssssssssssssssss#',
+      '#ssssssssssssssssssssss#',
+      '#ssssssssssssssssssssss#',
+      '#sPssssssssssssssssssPs#',
+      '#ssssssssssssssssssssss#',
+      '#ssssssssssssssssssssss#',
+      '#ssssssssssssssssssssss#',
+      '#sPssssssssssssssssssPs#',
+      '#ssssssssssssssssssssss#',
+      '#ssssssssssssssssssssss#',
+      '###########ss###########',
+      '###########,,###########',
+    ],
+    triggers: [
+      { x: 1, y: 10, w: 22, h: 1, once: 'bossIntro', dialogue: 'boss_intro' },
+    ],
+    exits: [
+      { x: 11, y: 17, w: 2, h: 1, to: 'forest', tx: 18.5, ty: 2, if: f => !f.bossFight && !f.duel, back: { x: 0, y: -1 } },
+    ],
+    onEnter(g, f) {
+      if (f.bossDead) {
+        g.spirit = new Enemy('guardian', (this.bossPos.x + 0.5) * TILE, (this.bossPos.y + 0.5) * TILE);
+        g.delay(0.6, () => Dialogue.start('after_boss'));
+      }
+      else if (!f.shrineIntro) { f.shrineIntro = true; g.delay(0.5, () => Dialogue.start('shrine_enter')); }
+    },
+  },
+};
+
+</script>
+  <script>
+// 엔딩 목록 — 대사에서 { exit: 'ending', arg: '키' } 로 호출
+const ENDINGS = {
+  guardian: {
+    type: 'TRUE END', title: '새로운 수호자',
+    text: [
+      '렌이 달빛꽃을 수정 위에 올려놓자, 은빛 꽃잎이 하나둘 피어나며 수정을 감쌌다.',
+      '탁한 보랏빛이 걷히고, 수정은 처음의 맑은 초록빛으로 맥동하기 시작했다.',
+      '“고맙구나, 아이야. 이제야 편히 쉴 수 있겠어. 숲을... 부탁한다.”',
+      '그날 이후 숲에는 다시 반짝이는 나비가 날아들었고, 사람들은 숲을 지키는 젊은 기사의 이야기를 오래도록 전했다.',
+      '마리는 성소 앞에 달빛꽃 화단을 만들었다. 꽃은 해마다, 렌이 성소를 찾는 날이면 어김없이 피어났다.',
+    ],
+  },
+  dawn: {
+    type: 'NORMAL END', title: '새벽의 귀환',
+    text: [
+      '렌의 검이 수정을 내리치자, 맑은 소리와 함께 수정이 산산이 부서졌다.',
+      '잿빛 저주는 바람에 실려 흩어졌고, 수호자 그레이브는 미소를 지으며 빛 속으로 사라졌다.',
+      '숲은 천천히 제 색을 되찾았다. 그러나 예전처럼 반짝이는 나비가 날아드는 일은 더 이상 없었다.',
+      '마을 사람들은 렌을 영웅이라 불렀다. 렌은 가끔, 텅 빈 성소를 찾아가 조용히 앉아 있곤 했다.',
+    ],
+  },
+  ashking: {
+    type: 'BAD END', title: '잿빛 왕관',
+    text: [
+      '렌이 수정에 손을 뻗는 순간, 차갑고 달콤한 힘이 온몸으로 스며들었다.',
+      '─ 그래, 이것이 숲의 모든 힘. 이제 아무도 너를 막을 수 없다.',
+      '그레이브의 절규가 멀어져 갔다. 렌의 머리 위로 잿빛 가시가 엉겨 붙어 왕관의 모양을 이루었다.',
+      '그해 겨울, 하늘마을의 하늘은 다시는 맑아지지 않았다.',
+    ],
+  },
+  shadow: {
+    type: 'BAD END', title: '그림자의 계약',
+    text: [
+      '렌은 수정을 카엘에게 건넸다. 카엘은 만족스러운 듯 웃었다.',
+      '“현명한 선택이다, 견습 기사. 덕분에 왕관이 완성되겠군.”',
+      '카엘이 그림자 속으로 사라진 뒤, 숲 전체가 비명을 지르듯 흔들렸다.',
+      '약속은 지켜졌다. 그러나 그 대가로 무엇을 잃었는지, 렌은 오래도록 알지 못했다.',
+    ],
+  },
+};
+
+</script>
+  <!-- 메인 -->
+  <script>
+// 게임 본체: 상태 관리, 업데이트 루프, 렌더링
+const Game = {
+  W: 640, H: 360,
+  mode: 'title', // title | play | dialogue | paused | gameover | ending
+  state: null, map: null, def: null, player: null,
+  enemies: [], npcs: [], projectiles: [], particles: [], drops: [], items: [], timers: [],
+  cam: { x: 0, y: 0 }, shake: 0, hitstop: 0, time: 0,
+  banner: null, toastMsg: null, boss: null, talkTarget: null, insideTriggers: new Set(),
+
+  newState() {
+    return { map: 'village', spawn: { x: 15.5, y: 16 }, hp: 10, maxHp: 10, potions: 0, swordLv: 1, flags: {} };
+  },
+
+  init() {
+    this.canvas = document.getElementById('screen');
+    this.ctx = this.canvas.getContext('2d');
+    this.state = this.newState();
+    Dialogue.init(); Touch.init(); UI.init();
+    let last = performance.now();
+    const loop = now => {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      this.update(dt); this.render(); Input.endFrame();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  },
+
+  // ───────── 진행 / 저장 ─────────
+  newGame() {
+    this.state = this.newState();
+    this.mode = 'play';
+    this.loadMap('village', 15.5, 16);
+  },
+  continueGame() {
+    const s = Save.load(); if (!s) return this.newGame();
+    this.state = s; this.mode = 'play';
+    this.loadMap(s.map, s.spawn.x, s.spawn.y, { noSave: true });
+  },
+  save() { Save.save(this.state); },
+  retry() {
+    const s = Save.load() || this.newState();
+    s.hp = s.maxHp; this.state = s; this.mode = 'play';
+    UI.hideAll();
+    this.loadMap(s.map, s.spawn.x, s.spawn.y);
+  },
+
+  loadMap(id, tx, ty, opts = {}) {
+    const def = MAPS[id], f = this.state.flags;
+    this.def = def; this.map = new GameMap(id, def);
+    this.player = new Player((tx + 0.5) * TILE, (ty + 0.5) * TILE);
+    this.player.face = opts.face || 'down';
+    this.enemies = []; this.projectiles = []; this.particles = []; this.drops = []; this.timers = [];
+    this.boss = null; this.spirit = null; this.insideTriggers = new Set();
+    this.npcs = (def.npcs || []).filter(n => checkCond(n.if)).map(n => new NPC(n));
+    if (def.enemies && !(def.clearFlag && f[def.clearFlag]))
+      for (const e of def.enemies) this.enemies.push(new Enemy(e.type, (e.x + 0.5) * TILE, (e.y + 0.5) * TILE));
+    this.items = (def.items || []).filter(it => !f[it.flag]).map(it => ({ ...it, px: (it.x + 0.5) * TILE, py: (it.y + 0.5) * TILE }));
+    this.state.map = id; this.state.spawn = { x: tx, y: ty };
+    if (!opts.noSave) this.save();
+    this.banner = { text: def.name, t: 2.8 };
+    this.updateCamera(true);
+    if (def.onEnter) def.onEnter(this, f);
+  },
+
+  delay(sec, fn) { this.timers.push({ t: sec, fn }); },
+  toast(text) { this.toastMsg = { text, t: 2.6 }; },
+  particle(x, y, vx, vy, life, color, size, type) { this.particles.push({ x, y, vx, vy, life, max: life, color, size, type }); },
+  arcFx(x, y, ang, color) { this.particles.push({ x, y, vx: 0, vy: 0, life: 0.18, max: 0.18, color, size: 26, type: 'arc', ang }); },
+  shoot(x, y, dx, dy, speed, o = {}) {
+    this.projectiles.push({ x, y, vx: dx * speed, vy: dy * speed, r: o.r || 5, color: o.color || '#c9a2ff', life: 5, dmg: o.dmg || 1 });
+    Sfx.play('shoot');
+  },
+
+  // ───────── 전투 ─────────
+  playerAttack(box, hitSet) {
+    for (const e of this.enemies) {
+      if (e.dead || hitSet.has(e)) continue;
+      if (Math.hypot(e.x - box.x, e.y - box.y) < box.r + e.r) { hitSet.add(e); e.hit(this.state.swordLv, this.player.x, this.player.y); }
+    }
+    for (const pr of this.projectiles) {
+      if (!pr.dead && Math.hypot(pr.x - box.x, pr.y - box.y) < box.r + pr.r) {
+        pr.dead = true; Sfx.play('deflect');
+        for (let i = 0; i < 5; i++) this.particle(pr.x, pr.y, rand(-70, 70), rand(-70, 70), 0.3, '#fff', 2);
+      }
+    }
+  },
+  onEnemyDeath(e) {
+    Sfx.play('die');
+    for (let i = 0; i < (e.def.boss ? 40 : 14); i++)
+      this.particle(e.x, e.y, rand(-120, 120), rand(-120, 120), rand(0.4, 0.9), i % 2 ? '#6a6070' : '#b48cff', rand(2, 4));
+    const f = this.state.flags;
+    if (!e.def.boss && !e.summoned && Math.random() < 0.3) this.drops.push({ x: e.x, y: e.y, t: 0 });
+    if (e.type === 'guardian') {
+      f.bossFight = false; f.bossDead = true; this.boss = null;
+      this.enemies.forEach(x => { if (x !== e) x.dead = true; });
+      this.projectiles = []; this.shake = 0.8; Sfx.play('boss');
+      this.state.spawn = this.def.checkpoint || this.state.spawn;
+      this.save(); // 체크포인트
+      this.spirit = new Enemy('guardian', e.x, e.y);
+      this.delay(1.6, () => Dialogue.start('after_boss'));
+    }
+    if (e.type === 'kael') {
+      f.duel = false; f.kaelBeaten = true; this.boss = null; this.projectiles = [];
+      this.enemies.forEach(x => { x.dead = true; });
+      this.save();
+      this.delay(1.0, () => Dialogue.start('kael_defeated'));
+    }
+  },
+  spawnBoss() {
+    const b = this.def.bossPos;
+    const e = new Enemy('guardian', (b.x + 0.5) * TILE, (b.y + 0.5) * TILE);
+    e.setState('walk'); this.enemies.push(e); this.boss = e;
+    this.state.flags.bossFight = true; this.shake = 0.6; Sfx.play('boss');
+  },
+  kaelAppear() {
+    if (this.npcs.some(n => n.id === 'kael_cut')) return;
+    const n = new NPC({ id: 'kael_cut', char: 'kael', x: 11, y: 14, face: 'up', noTalk: true });
+    n.x = this.player.x; n.y = Math.min(this.player.y + 110, 14.5 * TILE);
+    this.npcs.push(n);
+    for (let i = 0; i < 16; i++) this.particle(n.x, n.y - 6, rand(-60, 60), rand(-60, 60), 0.6, '#7b4cc9', 3);
+  },
+  startDuel() {
+    const cut = this.npcs.find(n => n.id === 'kael_cut');
+    this.npcs = this.npcs.filter(n => n !== cut);
+    const e = new Enemy('kael', cut ? cut.x : this.player.x, cut ? cut.y : this.player.y + 90);
+    if (boxHits(this.map, e.x, e.y, e.r)) e.y = this.player.y - 90;
+    e.setState('walk'); this.enemies.push(e); this.boss = e;
+    this.state.flags.duel = true;
+  },
+  usePotion() {
+    const s = this.state;
+    if (s.potions <= 0) return this.toast('물약이 없다');
+    if (s.hp >= s.maxHp) return this.toast('이미 체력이 가득하다');
+    s.potions--; s.hp = Math.min(s.maxHp, s.hp + 6); Sfx.play('pickup');
+    for (let i = 0; i < 12; i++) this.particle(this.player.x + rand(-10, 10), this.player.y, 0, rand(-60, -20), 0.6, '#7dffa0', 3);
+  },
+  gameOver() {
+    this.mode = 'gameover'; Sfx.play('die');
+    this.delay(0, () => {}); UI.show('gameover');
+  },
+  showEnding(id) {
+    Save.addEnding(id);
+    if (id === 'guardian') this.state.flags.crystalPure = true;
+    this.mode = 'ending';
+    UI.showEnding(ENDINGS[id]);
+  },
+  remainingEnemies() { return this.enemies.filter(e => !e.dead && !e.summoned).length; },
+
+  // ───────── 업데이트 ─────────
+  update(dt) {
+    this.time += dt;
+    if (this.mode === 'title') return;
+    if (this.mode === 'paused') { if (Input.hit('pause')) UI.resume(); return; }
+    if (this.mode === 'gameover') { if (Input.hit('act') || Input.hit('attack')) this.retry(); return; }
+    if (this.mode === 'ending') return;
+
+    this.updateParticles(dt);
+    if (this.banner) { this.banner.t -= dt; if (this.banner.t <= 0) this.banner = null; }
+    if (this.toastMsg) { this.toastMsg.t -= dt; if (this.toastMsg.t <= 0) this.toastMsg = null; }
+    this.shake = Math.max(0, this.shake - dt);
+
+    if (this.mode === 'dialogue') { Dialogue.update(dt); return; }
+
+    // play
+    if (this.hitstop > 0) { this.hitstop -= dt; return; }
+    if (Input.hit('pause')) return UI.pause();
+
+    for (const t of this.timers) t.t -= dt;
+    const due = this.timers.filter(t => t.t <= 0);
+    this.timers = this.timers.filter(t => t.t > 0);
+    for (const t of due) { t.fn(); if (this.mode !== 'play') return; }
+
+    const p = this.player, f = this.state.flags;
+    p.update(dt, this.map);
+
+    for (const n of this.npcs) {
+      n.update(dt, p);
+      const dx = p.x - n.x, dy = p.y - n.y, d = Math.hypot(dx, dy) || 1, min = p.r + n.r;
+      if (d < min) moveEntity(p, dx / d * (min - d), dy / d * (min - d), this.map);
+    }
+    // 대화 상대
+    this.talkTarget = null; let best = 46;
+    for (const n of this.npcs) { if (n.d.noTalk) continue; const d = Math.hypot(p.x - n.x, p.y - n.y); if (d < best) { best = d; this.talkTarget = n; } }
+    if (this.talkTarget && Input.hit('act')) { Input.consume('act'); return Dialogue.start(this.talkTarget.dialogueId()); }
+    if (Input.hit('potion')) this.usePotion();
+
+    for (const e of this.enemies) if (!e.dead) e.update(dt, this.map, p);
+    this.enemies = this.enemies.filter(e => !e.dead);
+    if (this.mode !== 'play') return;
+
+    for (const pr of this.projectiles) {
+      pr.x += pr.vx * dt; pr.y += pr.vy * dt; pr.life -= dt;
+      if (pr.life <= 0 || this.map.solidAtPx(pr.x, pr.y)) { pr.dead = true; this.particle(pr.x, pr.y, 0, 0, 0.2, pr.color, 4); continue; }
+      if (Math.hypot(pr.x - p.x, pr.y - (p.y - 4)) < pr.r + p.r - 2) { pr.dead = true; p.hurt(pr.dmg, pr.x, pr.y); }
+    }
+    this.projectiles = this.projectiles.filter(pr => !pr.dead);
+    if (this.mode !== 'play') return;
+
+    // 하트 드랍
+    for (const d of this.drops) {
+      d.t += dt;
+      if (Math.hypot(d.x - p.x, d.y - p.y) < 20) { d.dead = true; this.state.hp = Math.min(this.state.maxHp, this.state.hp + 2); Sfx.play('pickup'); }
+      if (d.t > 12) d.dead = true;
+    }
+    this.drops = this.drops.filter(d => !d.dead);
+
+    // 아이템
+    for (const it of this.items) {
+      if (Math.hypot(it.px - p.x, it.py - p.y) < 24) {
+        it.dead = true; f[it.flag] = true; Sfx.play('pickup');
+        if (it.dialogue) { this.items = this.items.filter(i => !i.dead); return Dialogue.start(it.dialogue); }
+      }
+    }
+    this.items = this.items.filter(i => !i.dead);
+
+    // 맵 클리어 (모든 적 처치)
+    if (this.def.clearFlag && !f[this.def.clearFlag] && this.def.enemies && this.remainingEnemies() === 0) {
+      f[this.def.clearFlag] = true; this.save();
+      if (this.def.onClear) this.delay(0.6, () => Dialogue.start(this.def.onClear));
+    }
+
+    // 트리거 영역
+    const ptx = Math.floor(p.x / TILE), pty = Math.floor(p.y / TILE);
+    const inRect = r => ptx >= r.x && ptx < r.x + (r.w || 1) && pty >= r.y && pty < r.y + (r.h || 1);
+    for (const [i, tr] of (this.def.triggers || []).entries()) {
+      const inside = inRect(tr), was = this.insideTriggers.has(i);
+      if (inside && !was) {
+        this.insideTriggers.add(i);
+        if ((tr.once && f[tr.once]) || !checkCond(tr.if)) continue;
+        if (tr.once) f[tr.once] = true;
+        if (tr.toast) this.toast(typeof tr.toast === 'function' ? tr.toast(this) : tr.toast);
+        if (tr.dialogue) return Dialogue.start(tr.dialogue);
+      } else if (!inside && was) this.insideTriggers.delete(i);
+    }
+
+    // 출구
+    for (const ex of this.def.exits || []) {
+      if (!inRect(ex)) continue;
+      if (ex.if && !checkCond(ex.if)) {
+        p.x += (ex.back?.x || 0) * 20; p.y += (ex.back?.y || 0) * 20;
+        if (ex.locked) return Dialogue.start(ex.locked);
+        continue;
+      }
+      return this.loadMap(ex.to, ex.tx, ex.ty, { face: ex.face });
+    }
+
+    this.updateCamera(false, dt);
+  },
+
+  updateParticles(dt) {
+    for (const q of this.particles) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.92; q.vy *= 0.92; q.life -= dt; }
+    this.particles = this.particles.filter(q => q.life > 0);
+    // 분위기 파티클
+    const amb = this.def && this.def.ambient;
+    if (amb && Math.random() < dt * 8) {
+      const x = this.cam.x + Math.random() * this.W, y = this.cam.y + Math.random() * this.H;
+      if (amb === 'ash') this.particle(x, y, rand(-10, 10), rand(8, 20), 3, 'rgba(190,180,200,.5)', 2);
+      if (amb === 'motes') this.particle(x, y, 0, rand(-15, -5), 2.5, 'rgba(200,150,255,.6)', 2);
+      if (amb === 'leaves' && Math.random() < 0.3) this.particle(x, y, rand(5, 20), rand(5, 12), 3, 'rgba(255,240,170,.6)', 2);
+    }
+  },
+
+  updateCamera(snap, dt = 0) {
+    const p = this.player, m = this.map;
+    let tx = p.x - this.W / 2, ty = p.y - this.H / 2;
+    tx = m.pw <= this.W ? (m.pw - this.W) / 2 : Math.max(0, Math.min(m.pw - this.W, tx));
+    ty = m.ph <= this.H ? (m.ph - this.H) / 2 : Math.max(0, Math.min(m.ph - this.H, ty));
+    if (snap) { this.cam.x = tx; this.cam.y = ty; }
+    else { const k = 1 - Math.exp(-8 * dt); this.cam.x += (tx - this.cam.x) * k; this.cam.y += (ty - this.cam.y) * k; }
+  },
+
+  // ───────── 렌더링 ─────────
+  render() {
+    const c = this.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    if (this.mode === 'title' || !this.map) return this.renderTitle(c);
+
+    const sx = this.shake > 0 ? rand(-1, 1) * this.shake * 10 : 0, sy = this.shake > 0 ? rand(-1, 1) * this.shake * 10 : 0;
+    const cx = Math.round(this.cam.x + sx), cy = Math.round(this.cam.y + sy);
+    c.fillStyle = '#000'; c.fillRect(0, 0, this.W, this.H);
+    c.save(); c.translate(-cx, -cy);
+    this.map.draw(c, { x: cx, y: cy }, this.time);
+
+    // 아이템 / 하트
+    for (const it of this.items) {
+      const b = Math.sin(this.time * 3) * 2;
+      c.fillStyle = 'rgba(0,0,0,.3)'; ellipse(c, it.px, it.py + 8, 8, 3);
+      c.fillStyle = '#8a5a2a'; c.fillRect(it.px - 8, it.py - 4 + b, 16, 10);
+      c.strokeStyle = '#8a5a2a'; c.lineWidth = 2; c.beginPath(); c.arc(it.px, it.py - 4 + b, 7, Math.PI, 0); c.stroke();
+      c.fillStyle = '#e8f0ff'; c.fillRect(it.px - 4, it.py - 7 + b, 3, 3); c.fillRect(it.px + 2, it.py - 8 + b, 3, 3);
+      if (Math.random() < 0.08) this.particle(it.px + rand(-10, 10), it.py - 8, 0, -20, 0.6, '#fff8c0', 2);
+    }
+    for (const d of this.drops) { if (d.t > 9 && Math.floor(d.t * 8) % 2) continue; drawHeart(c, d.x - 7, d.y - 8 + Math.sin(d.t * 4) * 2, 2); }
+
+    // 캐릭터 (y 정렬)
+    if (this.spirit) { c.globalAlpha = 0.3 + 0.1 * Math.sin(this.time * 2); this.spirit.t = this.time; this.spirit.drawGuardian(c, false); c.globalAlpha = 1; }
+    const ents = [...this.npcs, ...this.enemies, this.player].sort((a, b) => a.y - b.y);
+    for (const e of ents) e.draw(c);
+
+    // 투사체
+    for (const pr of this.projectiles) {
+      c.fillStyle = pr.color; c.globalAlpha = 0.35; circle(c, pr.x, pr.y, pr.r + 3);
+      c.globalAlpha = 1; circle(c, pr.x, pr.y, pr.r); c.fillStyle = '#fff'; circle(c, pr.x, pr.y, pr.r * 0.4);
+    }
+    // 파티클
+    for (const q of this.particles) {
+      c.globalAlpha = Math.max(0, q.life / q.max);
+      if (q.type === 'arc') {
+        c.strokeStyle = q.color; c.lineWidth = 6; c.beginPath(); c.arc(q.x, q.y, q.size, q.ang - 1.2, q.ang + 1.2); c.stroke();
+      } else { c.fillStyle = q.color; c.fillRect(q.x - q.size / 2, q.y - q.size / 2, q.size, q.size); }
+    }
+    c.globalAlpha = 1;
+
+    // NPC 머리 위 표시
+    for (const n of this.npcs) {
+      if (n.hasMark()) {
+        const b = Math.sin(this.time * 5) * 2;
+        c.font = `bold 16px ${FONT}`; textShadow(c, '!', n.x, n.y - 30 + b, '#ffd84a', 'center');
+      }
+    }
+    if (this.talkTarget && this.mode === 'play') {
+      const n = this.talkTarget, bx = n.x, by = n.y - 44 + Math.sin(this.time * 6) * 1.5;
+      c.fillStyle = 'rgba(20,14,40,.9)'; c.fillRect(bx - 22, by - 9, 44, 16);
+      c.strokeStyle = '#b9a7ff'; c.lineWidth = 1; c.strokeRect(bx - 21.5, by - 8.5, 43, 15);
+      c.font = `11px ${FONT}`; textShadow(c, document.body.classList.contains('touch') ? '대화' : 'E 대화', bx, by + 3, '#fff', 'center');
+    }
+    c.restore();
+
+    // 분위기 (색조 + 비네팅)
+    if (this.def.tint) { c.fillStyle = this.def.tint; c.fillRect(0, 0, this.W, this.H); }
+    if (this.def.vignette) {
+      const px = this.player.x - cx, py = this.player.y - cy;
+      const g = c.createRadialGradient(px, py, 90, px, py, 420);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(5,0,15,${this.def.vignette})`);
+      c.fillStyle = g; c.fillRect(0, 0, this.W, this.H);
+    }
+    this.renderHUD(c);
+  },
+
+  renderHUD(c) {
+    const s = this.state;
+    for (let i = 0; i < s.maxHp / 2; i++) drawHeart(c, 10 + i * 18, 10, Math.max(0, Math.min(2, s.hp - i * 2)));
+    c.font = `12px ${FONT}`;
+    textShadow(c, `물약 ×${s.potions}`, 10, 38, '#9dffb4');
+    if (s.swordLv > 1) textShadow(c, '그림자 날', 74, 38, '#c9a2ff');
+
+    // 목표
+    const obj = currentObjective(s.flags, this);
+    if (obj) {
+      c.font = `11px ${FONT}`;
+      const lines = Array.isArray(obj) ? obj : [obj];
+      const w = Math.max(...lines.map(l => c.measureText(l).width)) + 16;
+      c.fillStyle = 'rgba(10,6,24,.6)'; c.fillRect(this.W - w - 8, 8, w, 8 + lines.length * 15);
+      lines.forEach((l, i) => textShadow(c, l, this.W - 16, 22 + i * 15, i ? '#cfc6e6' : '#ffe9a8', 'right'));
+    }
+
+    // 보스 체력바
+    if (this.boss && !this.boss.dead) {
+      const b = this.boss, w = 300, x = (this.W - w) / 2, y = 336;
+      c.font = `bold 12px ${FONT}`; textShadow(c, b.def.name, this.W / 2, y - 6, '#f0d8ff', 'center');
+      c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(x - 2, y - 2, w + 4, 12);
+      c.fillStyle = '#3a1830'; c.fillRect(x, y, w, 8);
+      c.fillStyle = b.hp <= b.maxHp / 2 ? '#ff4f8a' : '#b06cff'; c.fillRect(x, y, w * Math.max(0, b.hp / b.maxHp), 8);
+    }
+
+    // 지역 이름
+    if (this.banner) {
+      const a = Math.min(1, this.banner.t, (2.8 - this.banner.t) * 3);
+      c.globalAlpha = Math.max(0, a);
+      c.font = `bold 22px ${FONT}`; textShadow(c, this.banner.text, this.W / 2, 92, '#f5eeff', 'center');
+      c.fillStyle = '#b9a7ff'; c.fillRect(this.W / 2 - 70, 102, 140, 1);
+      c.globalAlpha = 1;
+    }
+    // 토스트
+    if (this.toastMsg && this.mode !== 'dialogue') {
+      c.globalAlpha = Math.min(1, this.toastMsg.t * 2);
+      c.font = `13px ${FONT}`;
+      const w = c.measureText(this.toastMsg.text).width + 28, y = this.boss ? 290 : 312;
+      c.fillStyle = 'rgba(20,12,40,.88)'; c.fillRect((this.W - w) / 2, y - 16, w, 24);
+      textShadow(c, this.toastMsg.text, this.W / 2, y, '#fff', 'center');
+      c.globalAlpha = 1;
+    }
+  },
+
+  renderTitle(c) {
+    const t = this.time, W = this.W, H = this.H;
+    const g = c.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#120a26'); g.addColorStop(0.6, '#2a1640'); g.addColorStop(1, '#3d2350');
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    for (let i = 0; i < 70; i++) {
+      const x = hash2(i, 1) * W, y = hash2(i, 2) * H * 0.6;
+      c.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(t * (0.5 + hash2(i, 3)) + i));
+      c.fillStyle = '#fff'; c.fillRect(x, y, 1.5, 1.5);
+    }
+    c.globalAlpha = 1;
+    c.fillStyle = 'rgba(200,140,255,.25)'; circle(c, W * 0.75, 70, 26);
+    for (let layer = 0; layer < 2; layer++) {
+      c.fillStyle = layer ? '#0b0614' : '#1b1028';
+      for (let i = 0; i < 22; i++) {
+        const x = i * 32 - ((t * (layer ? 14 : 6)) % 32) - 16, h = 60 + hash2(i, layer + 5) * 50 + layer * 20;
+        c.beginPath(); c.moveTo(x, H); c.lineTo(x + 16, H - h); c.lineTo(x + 32, H); c.fill();
+      }
+    }
+    for (let i = 0; i < 30; i++) {
+      const x = (hash2(i, 9) * W + t * 12) % W, y = (hash2(i, 8) * H + t * (14 + hash2(i, 7) * 10)) % H;
+      c.fillStyle = 'rgba(200,190,215,.5)'; c.fillRect(x, y, 2, 2);
+    }
+  },
+};
+
+// ───────── HTML 오버레이 (타이틀, 일시정지, 엔딩) ─────────
+const UI = {
+  init() {
+    this.$ = id => document.getElementById(id);
+    this.$('btn-new').onclick = () => {
+      if (Save.has() && !confirm('저장된 진행 상황이 사라집니다. 새로 시작할까요?')) return;
+      this.hideAll(); Game.newGame();
+    };
+    this.$('btn-continue').onclick = () => { this.hideAll(); Game.continueGame(); };
+    this.$('btn-help').onclick = () => { this.$('pause-title').textContent = '조작법'; this.$('btn-resume').textContent = '닫기'; this.$('btn-totitle').classList.add('hidden'); this.helpMode = true; this.show('pause'); };
+    this.$('btn-resume').onclick = () => this.resume();
+    this.$('btn-totitle').onclick = () => this.toTitle();
+    this.$('btn-retry').onclick = () => Game.retry();
+    this.$('btn-end').onclick = () => this.toTitle();
+    this.toTitle();
+  },
+  hideAll() { ['title', 'pause', 'gameover', 'ending'].forEach(id => this.$(id).classList.add('hidden')); },
+  show(id) { this.$(id).classList.remove('hidden'); const b = this.$(id).querySelector('button'); if (b && !document.body.classList.contains('touch')) b.focus(); },
+  toTitle() {
+    this.hideAll(); Dialogue.close(); Game.mode = 'title'; Game.map = null;
+    this.$('btn-continue').disabled = !Save.has();
+    const found = Save.endings();
+    const all = Object.keys(ENDINGS);
+    this.$('ending-list').innerHTML = `발견한 엔딩 ${found.length} / ${all.length}<br>` +
+      all.map(id => found.includes(id) ? ENDINGS[id].title : '???').join(' · ');
+    this.show('title');
+    this.$('btn-continue').disabled ? this.$('btn-new').focus() : this.$('btn-continue').focus();
+  },
+  pause() {
+    Game.mode = 'paused'; this.helpMode = false;
+    this.$('pause-title').textContent = '일시정지'; this.$('btn-resume').textContent = '계속하기';
+    this.$('btn-totitle').classList.remove('hidden');
+    this.show('pause');
+  },
+  resume() {
+    this.$('pause').classList.add('hidden');
+    if (this.helpMode) { this.helpMode = false; this.toTitle(); return; }
+    Game.mode = 'play';
+  },
+  showEnding(e) {
+    this.$('end-type').textContent = e.type;
+    this.$('end-title').textContent = e.title;
+    this.$('end-text').innerHTML = e.text.map((p, i) => `<p style="animation-delay:${0.4 + i * 1.1}s">${p}</p>`).join('');
+    this.$('end-count').textContent = `발견한 엔딩 ${Save.endings().length} / ${Object.keys(ENDINGS).length}`;
+    this.show('ending');
+  },
+};
+
+window.addEventListener('load', () => Game.init());
+
+</script>
+</body>
+</html>
